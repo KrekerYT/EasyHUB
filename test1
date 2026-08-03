@@ -8,12 +8,12 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Camera = workspace.CurrentCamera
 
--- Удаляем старый интерфейс, если он уже есть
+-- Remove old GUI if exists
 if PlayerGui:FindFirstChild("EasyHUB") then
     PlayerGui["EasyHUB"]:Destroy()
 end
 
--- Создание главного контейнера
+-- Main Container
 local EasyHUB = Instance.new("ScreenGui")
 EasyHUB.Name = "EasyHUB"
 EasyHUB.Parent = PlayerGui
@@ -25,7 +25,15 @@ local MainScale = Instance.new("UIScale")
 MainScale.Scale = 1
 MainScale.Parent = EasyHUB
 
--- Кнопка открытия/закрытия по центру сверху (EasyMenu)
+-- Themes storage
+local ThemeConfig = {
+    Background = Color3.fromRGB(18, 18, 22),
+    Sidebar = Color3.fromRGB(14, 14, 18),
+    Accent = Color3.fromRGB(52, 152, 219),
+    Text = Color3.fromRGB(255, 255, 255)
+}
+
+-- Open/Close Button
 local OpenButton = Instance.new("TextButton")
 OpenButton.Name = "EasyMenu"
 OpenButton.Parent = EasyHUB
@@ -47,11 +55,11 @@ OpenButtonStroke.Parent = OpenButton
 OpenButtonStroke.Color = Color3.fromRGB(45, 45, 52)
 OpenButtonStroke.Thickness = 1
 
--- Главное окно
+-- Main Window
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = EasyHUB
-MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+MainFrame.BackgroundColor3 = ThemeConfig.Background
 MainFrame.Position = UDim2.new(0.5, -325, 0.5, -185)
 MainFrame.Size = UDim2.new(0, 650, 0, 370)
 MainFrame.Visible = false
@@ -66,7 +74,7 @@ MainStroke.Parent = MainFrame
 MainStroke.Color = Color3.fromRGB(45, 45, 52)
 MainStroke.Thickness = 1
 
--- Верхняя панель (для перетаскивания)
+-- Top Bar
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
 TopBar.Parent = MainFrame
@@ -81,7 +89,7 @@ HubTitle.Position = UDim2.new(0, 20, 0, 0)
 HubTitle.Size = UDim2.new(0, 200, 1, 0)
 HubTitle.Font = Enum.Font.GothamBold
 HubTitle.Text = "EasyHUB"
-HubTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+HubTitle.TextColor3 = ThemeConfig.Text
 HubTitle.TextSize = 18
 HubTitle.TextXAlignment = Enum.TextXAlignment.Left
 HubTitle.ZIndex = 6
@@ -98,7 +106,7 @@ HubSubTitle.TextSize = 14
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
 HubSubTitle.ZIndex = 6
 
--- Кнопка закрытия (крестик)
+-- Close Button
 local CloseButton = Instance.new("TextButton")
 CloseButton.Parent = TopBar
 CloseButton.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
@@ -114,11 +122,11 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 6)
 CloseCorner.Parent = CloseButton
 
--- Боковая панель с вкладками
+-- Sidebar
 local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Parent = MainFrame
 Sidebar.Active = true
-Sidebar.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+Sidebar.BackgroundColor3 = ThemeConfig.Sidebar
 Sidebar.BorderSizePixel = 0
 Sidebar.Position = UDim2.new(0, 0, 0, 50)
 Sidebar.Size = UDim2.new(0, 160, 1, -50)
@@ -132,7 +140,7 @@ SidebarLayout.Parent = Sidebar
 SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 SidebarLayout.Padding = UDim.new(0, 5)
 
--- Контейнер для страниц
+-- Container for Pages
 local Container = Instance.new("Frame")
 Container.Parent = MainFrame
 Container.BackgroundTransparency = 1
@@ -140,7 +148,6 @@ Container.Position = UDim2.new(0, 180, 0, 65)
 Container.Size = UDim2.new(1, -195, 1, -75)
 Container.ZIndex = 6
 
--- Функция создания страниц
 local function CreatePage()
     local page = Instance.new("ScrollingFrame")
     page.Parent = Container
@@ -166,7 +173,6 @@ local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
 ESPPage.Visible = true
 
--- Функция создания заголовков категорий
 local function CreateCategoryLabel(parent, text)
     local lbl = Instance.new("TextLabel")
     lbl.Parent = parent
@@ -180,7 +186,6 @@ local function CreateCategoryLabel(parent, text)
     lbl.ZIndex = 6
 end
 
--- Функция создания тогглов
 local function CreateToggle(parent, name, callback)
     local ToggleButton = Instance.new("TextButton")
     ToggleButton.Parent = parent
@@ -199,7 +204,7 @@ local function CreateToggle(parent, name, callback)
     Label.Parent = ToggleButton
     Label.BackgroundTransparency = 1
     Label.Position = UDim2.new(0, 15, 0, 0)
-    Label.Size = UDim2.new(0, 250, 1, 0)
+    Label.Size = UDim2.new(0, 220, 1, 0)
     Label.Font = Enum.Font.GothamMedium
     Label.Text = name
     Label.TextColor3 = Color3.fromRGB(220, 220, 230)
@@ -234,7 +239,7 @@ local function CreateToggle(parent, name, callback)
         toggled = not toggled
         callback(toggled)
         
-        local goalSwitchColor = toggled and Color3.fromRGB(52, 152, 219) or Color3.fromRGB(40, 40, 50)
+        local goalSwitchColor = toggled and ThemeConfig.Accent or Color3.fromRGB(40, 40, 50)
         local goalCirclePos = toggled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
         
         TweenService:Create(Switch, TweenInfo.new(0.2), {BackgroundColor3 = goalSwitchColor}):Play()
@@ -242,7 +247,6 @@ local function CreateToggle(parent, name, callback)
     end)
 end
 
--- Функция создания слайдеров
 local function CreateSlider(parent, name, min, max, default, callback)
     local SliderFrame = Instance.new("Frame")
     SliderFrame.Parent = parent
@@ -279,7 +283,7 @@ local function CreateSlider(parent, name, min, max, default, callback)
     
     local Fill = Instance.new("Frame")
     Fill.Parent = SliderBar
-    Fill.BackgroundColor3 = Color3.fromRGB(52, 152, 219)
+    Fill.BackgroundColor3 = ThemeConfig.Accent
     local fillPercent = math.clamp((default - min) / (max - min), 0, 1)
     Fill.Size = UDim2.new(fillPercent, 0, 1, 0)
     Fill.ZIndex = 6
@@ -312,45 +316,131 @@ local function CreateSlider(parent, name, min, max, default, callback)
     end)
 end
 
--- КОНФИГИ
-local ESPConfig = {Chams = false, Tracers = false, Names = false, Health = false}
-local MiscConfig = {NoCollision = false, Bhop = false, SpeedMultiplier = 1}
+-- Dropdown/Selector for Health and Color configs
+local function CreateDropdown(parent, name, options, callback)
+    local DropFrame = Instance.new("Frame")
+    DropFrame.Parent = parent
+    DropFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+    DropFrame.Size = UDim2.new(1, -10, 0, 45)
+    DropFrame.ZIndex = 6
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = DropFrame
+    
+    local Label = Instance.new("TextLabel")
+    Label.Parent = DropFrame
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 15, 0, 0)
+    Label.Size = UDim2.new(0, 150, 1, 0)
+    Label.Font = Enum.Font.GothamMedium
+    Label.Text = name
+    Label.TextColor3 = Color3.fromRGB(220, 220, 230)
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.ZIndex = 6
+    
+    local CurrentIndex = 1
+    local SelectButton = Instance.new("TextButton")
+    SelectButton.Parent = DropFrame
+    SelectButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    SelectButton.Position = UDim2.new(1, -130, 0.5, -12)
+    SelectButton.Size = UDim2.new(0, 120, 0, 24)
+    SelectButton.Font = Enum.Font.Gotham
+    SelectButton.Text = options[CurrentIndex]
+    SelectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SelectButton.TextSize = 13
+    SelectButton.ZIndex = 6
+    
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 6)
+    BtnCorner.Parent = SelectButton
+    
+    SelectButton.MouseButton1Click:Connect(function()
+        CurrentIndex = CurrentIndex + 1
+        if CurrentIndex > #options then
+            CurrentIndex = 1
+        end
+        SelectButton.Text = options[CurrentIndex]
+        callback(options[CurrentIndex])
+    end)
+end
 
--- НАПОЛНЕНИЕ ВКЛАДОК
+-- CONFIGS
+local ESPConfig = {
+    Chams = false, 
+    Tracers = false, 
+    Names = false, 
+    Health = false, 
+    HealthMode = "Text", -- Text or Bar
+    ChamsColor = Color3.fromRGB(52, 152, 219),
+    TracersColor = Color3.fromRGB(255, 255, 255)
+}
+local MiscConfig = {NoCollision = false, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.7}
+
+-- BUILD TABS
 CreateCategoryLabel(ESPPage, "VISUALS")
-CreateToggle(ESPPage, "Chams (Подсветка)", function(state) ESPConfig.Chams = state end)
-CreateToggle(ESPPage, "Tracers (Линии)", function(state) ESPConfig.Tracers = state end)
-CreateToggle(ESPPage, "Names (Ники)", function(state) ESPConfig.Names = state end)
-CreateToggle(ESPPage, "Health (Здоровье)", function(state) ESPConfig.Health = state end)
+CreateToggle(ESPPage, "Chams", function(state) ESPConfig.Chams = state end)
+CreateToggle(ESPPage, "Tracers", function(state) ESPConfig.Tracers = state end)
+CreateToggle(ESPPage, "Names", function(state) ESPConfig.Names = state end)
+CreateToggle(ESPPage, "Health", function(state) ESPConfig.Health = state end)
+CreateDropdown(ESPPage, "Health Display", {"Text", "Bar"}, function(val) ESPConfig.HealthMode = val end)
 
-CreateCategoryLabel(MiscPage, "WORLD")
-CreateToggle(MiscPage, "No Player Collision (Сквозь игроков)", function(state) 
-    MiscConfig.NoCollision = state 
+CreateCategoryLabel(ESPPage, "COLORS")
+CreateDropdown(ESPPage, "Chams Color", {"Blue", "Red", "Green", "Purple", "Yellow"}, function(val)
+    if val == "Blue" then ESPConfig.ChamsColor = Color3.fromRGB(52, 152, 219)
+    elseif val == "Red" then ESPConfig.ChamsColor = Color3.fromRGB(231, 76, 60)
+    elseif val == "Green" then ESPConfig.ChamsColor = Color3.fromRGB(46, 204, 113)
+    elseif val == "Purple" then ESPConfig.ChamsColor = Color3.fromRGB(155, 89, 182)
+    elseif val == "Yellow" then ESPConfig.ChamsColor = Color3.fromRGB(241, 196, 15) end
 end)
+
+CreateDropdown(ESPPage, "Tracers Color", {"White", "Red", "Green", "Blue", "Yellow"}, function(val)
+    if val == "White" then ESPConfig.TracersColor = Color3.fromRGB(255, 255, 255)
+    elseif val == "Red" then ESPConfig.TracersColor = Color3.fromRGB(231, 76, 60)
+    elseif val == "Green" then ESPConfig.TracersColor = Color3.fromRGB(46, 204, 113)
+    elseif val == "Blue" then ESPConfig.TracersColor = Color3.fromRGB(52, 152, 219)
+    elseif val == "Yellow" then ESPConfig.TracersColor = Color3.fromRGB(241, 196, 15) end
+end)
+
+-- MISC TAB
+CreateCategoryLabel(MiscPage, "WORLD")
+CreateToggle(MiscPage, "No Player Collision", function(state) MiscConfig.NoCollision = state end)
 
 CreateCategoryLabel(MiscPage, "MOVEMENT")
-CreateToggle(MiscPage, "BHOP (Прыжок х1.7 скорости)", function(state)
-    MiscConfig.Bhop = state
-end)
+CreateToggle(MiscPage, "BHOP", function(state) MiscConfig.Bhop = state end)
+CreateSlider(MiscPage, "BHOP Speed Multiplier", 1, 3, 1.7, function(val) MiscConfig.BhopMultiplier = val end)
+CreateSlider(MiscPage, "Speed", 1, 3, 1, function(val) MiscConfig.SpeedMultiplier = val end)
 
-CreateSlider(MiscPage, "Speed (Скорость)", 1, 3, 1, function(val)
-    MiscConfig.SpeedMultiplier = val
-end)
-
+-- SETTINGS TAB
 CreateCategoryLabel(SettingsPage, "INTERFACE")
-CreateSlider(SettingsPage, "UI Scale (Размер меню)", 70, 130, 100, function(val)
+CreateSlider(SettingsPage, "UI Scale", 70, 130, 100, function(val)
     MainScale.Scale = val / 100
 end)
 
-CreateToggle(SettingsPage, "Russian Language (Русский)", function(state)
-    if state then
-        OpenButton.Text = "ИзиМеню"
-    else
-        OpenButton.Text = "EasyMenu"
+CreateDropdown(SettingsPage, "Menu Theme", {"Default", "Dark", "Crimson", "Emerald"}, function(val)
+    if val == "Default" then
+        ThemeConfig.Background = Color3.fromRGB(18, 18, 22)
+        ThemeConfig.Sidebar = Color3.fromRGB(14, 14, 18)
+        ThemeConfig.Accent = Color3.fromRGB(52, 152, 219)
+    elseif val == "Dark" then
+        ThemeConfig.Background = Color3.fromRGB(10, 10, 10)
+        ThemeConfig.Sidebar = Color3.fromRGB(5, 5, 5)
+        ThemeConfig.Accent = Color3.fromRGB(100, 100, 100)
+    elseif val == "Crimson" then
+        ThemeConfig.Background = Color3.fromRGB(20, 12, 12)
+        ThemeConfig.Sidebar = Color3.fromRGB(15, 8, 8)
+        ThemeConfig.Accent = Color3.fromRGB(231, 76, 60)
+    elseif val == "Emerald" then
+        ThemeConfig.Background = Color3.fromRGB(12, 20, 15)
+        ThemeConfig.Sidebar = Color3.fromRGB(8, 15, 10)
+        ThemeConfig.Accent = Color3.fromRGB(46, 204, 113)
     end
+    MainFrame.BackgroundColor3 = ThemeConfig.Background
+    Sidebar.BackgroundColor3 = ThemeConfig.Sidebar
 end)
 
--- Создание кнопок в боковом меню
+-- Tab Buttons
 local function CreateTabButton(name, icon, targetPage)
     local TabBtn = Instance.new("TextButton")
     TabBtn.Parent = Sidebar
@@ -368,7 +458,6 @@ local function CreateTabButton(name, icon, targetPage)
         ESPPage.Visible = false
         MiscPage.Visible = false
         SettingsPage.Visible = false
-        
         targetPage.Visible = true
     end)
 end
@@ -377,7 +466,7 @@ CreateTabButton("ESP", "🛡️", ESPPage)
 CreateTabButton("Misc", "⚡", MiscPage)
 CreateTabButton("Settings", "⚙️", SettingsPage)
 
--- Логика открытия/закрытия меню
+-- Open/Close Logic
 local isOpen = false
 OpenButton.MouseButton1Click:Connect(function()
     isOpen = not isOpen
@@ -389,14 +478,13 @@ CloseButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
 end)
 
--- Перетаскивание окна
+-- Draggable Window
 local dragging, dragInput, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-        
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
@@ -418,7 +506,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ГЛАВНЫЙ ЦИКЛ РАБОТЫ
+-- MAIN LOOP
 local tracersList = {}
 
 RunService.RenderStepped:Connect(function()
@@ -430,7 +518,7 @@ RunService.RenderStepped:Connect(function()
         local currentMultiplier = MiscConfig.SpeedMultiplier
         
         if MiscConfig.Bhop and humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-            currentMultiplier = math.max(currentMultiplier, 1.7)
+            currentMultiplier = math.max(currentMultiplier, MiscConfig.BhopMultiplier)
         end
         
         humanoid.WalkSpeed = baseSpeed * currentMultiplier
@@ -454,14 +542,15 @@ RunService.RenderStepped:Connect(function()
             local hrp = pChar.HumanoidRootPart
             local pHumanoid = pChar:FindFirstChildOfClass("Humanoid")
             
+            -- Tracers Logic
             if ESPConfig.Tracers then
                 if not tracersList[player] then
                     local line = Drawing.new("Line")
                     line.Visible = false
-                    line.Color = Color3.fromRGB(255, 255, 255)
                     line.Thickness = 1
                     tracersList[player] = line
                 end
+                tracersList[player].Color = ESPConfig.TracersColor
                 
                 local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
                 if onScreen then
@@ -477,49 +566,88 @@ RunService.RenderStepped:Connect(function()
                 end
             end
             
+            -- Chams Logic
             if ESPConfig.Chams then
-                if not pChar:FindFirstChild("EasyChams") then
-                    local highlight = Instance.new("Highlight")
+                local highlight = pChar:FindFirstChild("EasyChams")
+                if not highlight then
+                    highlight = Instance.new("Highlight")
                     highlight.Name = "EasyChams"
                     highlight.Adornee = pChar
-                    highlight.FillColor = Color3.fromRGB(52, 152, 219)
                     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
                     highlight.Parent = pChar
                 end
+                highlight.FillColor = ESPConfig.ChamsColor
             else
                 if pChar:FindFirstChild("EasyChams") then
                     pChar.EasyChams:Destroy()
                 end
             end
 
+            -- Names & Health Logic
             if (ESPConfig.Names or ESPConfig.Health) then
                 local head = pChar:FindFirstChild("Head") or hrp
-                if not pChar:FindFirstChild("EasyESPInfo") and head then
-                    local bg = Instance.new("BillboardGui")
+                local bg = pChar:FindFirstChild("EasyESPInfo")
+                if not bg and head then
+                    bg = Instance.new("BillboardGui")
                     bg.Name = "EasyESPInfo"
                     bg.Adornee = head
-                    bg.Size = UDim2.new(0, 100, 0, 40)
-                    bg.StudsOffset = Vector3.new(0, 2.2, 0)
+                    bg.Size = UDim2.new(0, 120, 0, 50)
+                    bg.StudsOffset = Vector3.new(0, 2.5, 0)
                     bg.AlwaysOnTop = true
                     bg.Parent = pChar
 
                     local txt = Instance.new("TextLabel")
                     txt.Name = "InfoText"
-                    txt.Size = UDim2.new(1, 0, 1, 0)
+                    txt.Size = UDim2.new(1, 0, 0, 25)
                     txt.BackgroundTransparency = 1
                     txt.Font = Enum.Font.GothamBold
                     txt.TextSize = 13
                     txt.TextColor3 = Color3.fromRGB(255, 255, 255)
                     txt.TextStrokeTransparency = 0.4
                     txt.Parent = bg
+
+                    local healthBarBg = Instance.new("Frame")
+                    healthBarBg.Name = "HealthBarBg"
+                    healthBarBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                    healthBarBg.Position = UDim2.new(0.1, 0, 0, 28)
+                    healthBarBg.Size = UDim2.new(0.8, 0, 0, 6)
+                    healthBarBg.Visible = false
+                    healthBarBg.Parent = bg
+
+                    local hbCorner = Instance.new("UICorner")
+                    hbCorner.CornerRadius = UDim.new(1, 0)
+                    hbCorner.Parent = healthBarBg
+
+                    local healthBarFill = Instance.new("Frame")
+                    healthBarFill.Name = "HealthBarFill"
+                    healthBarFill.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+                    healthBarFill.Size = UDim2.new(1, 0, 1, 0)
+                    healthBarFill.Parent = healthBarBg
+
+                    local hbfCorner = Instance.new("UICorner")
+                    hbfCorner.CornerRadius = UDim.new(1, 0)
+                    hbfCorner.Parent = healthBarFill
                 end
                 
-                local bg = pChar:FindFirstChild("EasyESPInfo")
-                if bg and bg:FindFirstChild("InfoText") then
+                bg = pChar:FindFirstChild("EasyESPInfo")
+                if bg then
                     local textStr = ""
                     if ESPConfig.Names then textStr = textStr .. player.Name .. "\n" end
-                    if ESPConfig.Health and pHumanoid then textStr = textStr .. "HP: " .. math.floor(pHumanoid.Health) end
+                    if ESPConfig.Health and ESPConfig.HealthMode == "Text" and pHumanoid then 
+                        textStr = textStr .. "HP: " .. math.floor(pHumanoid.Health) 
+                    end
                     bg.InfoText.Text = textStr
+
+                    local hbBg = bg:FindFirstChild("HealthBarBg")
+                    if hbBg then
+                        if ESPConfig.Health and ESPConfig.HealthMode == "Bar" and pHumanoid then
+                            hbBg.Visible = true
+                            local hpPercent = math.clamp(pHumanoid.Health / pHumanoid.MaxHealth, 0, 1)
+                            hbBg.HealthBarFill.Size = UDim2.new(hpPercent, 0, 1, 0)
+                        else
+                            hbBg.Visible = false
+                        end
+                    end
                     bg.Enabled = true
                 end
             else
