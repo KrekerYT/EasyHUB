@@ -111,7 +111,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v2.8 Professional"
+HubSubTitle.Text = "v2.9 Professional"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -193,6 +193,7 @@ end
 
 local ESPPage = CreatePage()
 local TeleportPage = CreatePage()
+local AutofarmPage = CreatePage()
 local SkinchangerPage = CreatePage()
 local AimbotPage = CreatePage()
 local FunPage = CreatePage()
@@ -506,12 +507,13 @@ local ESPConfig = {
     MurderColor = Color3.fromRGB(231, 76, 60),
     SheriffColor = Color3.fromRGB(52, 152, 219)
 }
+local AutofarmConfig = {AutoCoinFarm = false, InstantCoinFarm = false}
 local SkinConfig = {Headless = false}
 local AimbotConfig = {SilentAim = false, AutoShoot = false, FOV = 200}
 local FunConfig = {Spinbot = false, SpinSpeed = 50}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
 
--- ROBUST GUN FINDER
+-- ROBUST GUN FINDER & COIN FINDER FOR MM2
 local function searchForGun()
     for _, obj in ipairs(Workspace:GetChildren()) do
         if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
@@ -524,6 +526,28 @@ local function searchForGun()
                 if subObj:IsA("Tool") and (subObj.Name:lower():find("gun") or subObj.Name:lower():find("revolver") or subObj.Name:lower():find("sheriff")) then
                     return subObj
                 end
+            end
+        end
+    end
+    return nil
+end
+
+local function searchForCoin()
+    -- Ищет монетки на карте MM2 (обычно в папке CoinContainer или внутри Workspace)
+    local coinContainer = Workspace:FindFirstChild("CoinContainer") or Workspace:FindFirstChild("Coins")
+    if coinContainer then
+        for _, coin in ipairs(coinContainer:GetChildren()) do
+            local handle = coin:FindFirstChild("BasePart") or coin:FindFirstChild("Handle") or coin:FindFirstChildWhichIsA("BasePart") or (coin:IsA("BasePart") and coin)
+            if handle then
+                return handle
+            end
+        end
+    end
+    -- Глобальный поиск на случай другого контейнера
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj.Name:lower() == "coin" or obj.Name:lower() == "basepart" and obj.Parent and obj.Parent.Name:lower():find("coin") then
+            if obj:IsA("BasePart") then
+                return obj
             end
         end
     end
@@ -570,7 +594,7 @@ local function IsInFOV(targetPos)
     return false
 end
 
--- HOOK FOR SILENT AIM (Направляет выстрел на убийцу, если включен SilentAim)
+-- HOOK FOR SILENT AIM
 pcall(function()
     local mt = getrawmetatable(game)
     local oldNamecall = mt.__namecall
@@ -586,7 +610,6 @@ pcall(function()
                     local murderer = GetMurderer()
                     if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
                         local mPos = murderer.Character.HumanoidRootPart.Position
-                        -- Если включен еще и AutoShoot или мардер в зоне FOV — перенаправляем
                         if AimbotConfig.AutoShoot or IsInFOV(mPos) then
                             for i, v in ipairs(args) do
                                 if typeof(v) == "Vector3" then
@@ -729,6 +752,11 @@ CreateButton(TeleportPage, "Teleport To Sheriff", function()
     end
 end)
 
+-- AUTOFARM TAB
+CreateCategoryLabel(AutofarmPage, "COIN FARMING")
+CreateToggle(AutofarmPage, "Auto Coin Farm", "AutoCoinFarm", function(state) AutofarmConfig.AutoCoinFarm = state end)
+CreateToggle(AutofarmPage, "Instant Coin Farm", "InstantCoinFarm", function(state) AutofarmConfig.InstantCoinFarm = state end)
+
 -- SKINCHANGER TAB 
 CreateCategoryLabel(SkinchangerPage, "VISUAL SKINS")
 CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
@@ -856,6 +884,7 @@ local function CreateTabButton(name, icon, targetPage)
     TabBtn.MouseButton1Click:Connect(function()
         ESPPage.Visible = false
         TeleportPage.Visible = false
+        AutofarmPage.Visible = false
         SkinchangerPage.Visible = false
         AimbotPage.Visible = false
         FunPage.Visible = false
@@ -878,6 +907,7 @@ end
 
 CreateTabButton("ESP", "🛡️", ESPPage)
 CreateTabButton("Teleport", "📍", TeleportPage)
+CreateTabButton("Autofarm", "🌿", AutofarmPage)
 CreateTabButton("Skins", "👕", SkinchangerPage)
 CreateTabButton("Aimbot", "🎯", AimbotPage)
 CreateTabButton("Fun", "🎉", FunPage)
@@ -927,6 +957,26 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- INSTANT COIN FARM LOOP (Телепорт к монеткам каждые 0.2 сек)
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if AutofarmConfig.InstantCoinFarm then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local coin = searchForCoin()
+                if coin then
+                    char.HumanoidRootPart.CFrame = coin.CFrame + Vector3.new(0, 2, 0)
+                    pcall(function()
+                        firetouchinterest(char.HumanoidRootPart, coin, 0)
+                        firetouchinterest(char.HumanoidRootPart, coin, 1)
+                    end)
+                end
+            end
+        end
+    end
+end)
+
 -- HIGH-PERFORMANCE OPTIMIZED RENDER LOOP
 local tracersList = {}
 local frameCounter = 0
@@ -970,7 +1020,19 @@ RunService.RenderStepped:Connect(function()
         hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(FunConfig.SpinSpeed), 0)
     end
     
-    -- AutoShoot Logic (Стреляет, если шериф и прицел наведен на мардера ИЛИ если включен SilentAim + мардер в поле зрения)
+    -- Auto Coin Farm (Легитимный фарм: персонаж идет к монетке)
+    if AutofarmConfig.AutoCoinFarm and not AutofarmConfig.InstantCoinFarm and hrp and humanoid then
+        local coin = searchForCoin()
+        if coin then
+            humanoid:MoveTo(coin.Position)
+            pcall(function()
+                firetouchinterest(hrp, coin, 0)
+                firetouchinterest(hrp, coin, 1)
+            end)
+        end
+    end
+    
+    -- AutoShoot Logic
     if AimbotConfig.AutoShoot and frameCounter % 15 == 0 then
         if GetMM2Role(LocalPlayer) == "Sheriff" then
             local gun = char and char:FindFirstChildOfClass("Tool")
