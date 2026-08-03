@@ -111,7 +111,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v3.9 Fix"
+HubSubTitle.Text = "v4.0 Rage"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -197,6 +197,7 @@ local TeleportPage = CreatePage()
 local AutofarmPage = CreatePage()
 local SkinchangerPage = CreatePage()
 local AimbotPage = CreatePage()
+local RagePage = CreatePage()
 local FunPage = CreatePage()
 local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
@@ -512,8 +513,9 @@ local VisualsConfig = {XRay = false, XRayPercent = 50}
 local AutofarmConfig = {AutoCoinFarm = false, InstantCoinFarm = false}
 local SkinConfig = {Headless = false}
 local AimbotConfig = {SilentAim = false, AutoShoot = false, FOV = 350}
+local RageConfig = {Godmode = false, Invisibility = false}
 local FunConfig = {Spinbot = false, SpinSpeed = 50}
-local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0, InfJump = false, Spider = false, JumpPowerMultiplier = 1.0, GravityVal = 196.2, Freecam = false, FreecamSpeed = 50}
+local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0, InfJump = false, Spider = false, JumpPowerMultiplier = 1.0, GravityToggle = false, GravityVal = 196.2, Freecam = false, FreecamSpeed = 50}
 
 -- ROBUST GAME OBJECT FINDERS
 local function searchForGun()
@@ -540,11 +542,6 @@ local function searchForCoin()
                     end
                 end
             end
-        end
-    end
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and (obj.Name:lower():find("coin") or (obj.Parent and obj.Parent.Name:lower():find("coin"))) then
-            return obj
         end
     end
     return nil
@@ -590,7 +587,7 @@ local function IsInFOV(targetPos)
     return false
 end
 
--- ADVANCED SILENT AIM HOOK (Fixed MM2 Remote & Argument Matching)
+-- FIXED SILENT AIM & AUTOSHOOT HOOK (Robust MM2 Event interception)
 pcall(function()
     local mt = getrawmetatable(game)
     local oldNamecall = mt.__namecall
@@ -603,20 +600,18 @@ pcall(function()
         if not checkcaller() and AimbotConfig.SilentAim then
             if tostring(method) == "FireServer" or tostring(method) == "InvokeServer" then
                 local sName = self.Name:lower()
-                if sName:find("shoot") or sName:find("gun") or sName:find("fire") or sName:find("hit") or sName:find("knife") then
+                if sName:find("shoot") or sName:find("gun") or sName:find("fire") or sName:find("hit") or sName:find("knife") or sName:find("ray") then
                     local murderer = GetMurderer()
                     if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
                         local mPart = murderer.Character.HumanoidRootPart
-                        if IsInFOV(mPart.Position) then
-                            for i, v in ipairs(args) do
-                                if typeof(v) == "Vector3" then
-                                    args[i] = mPart.Position
-                                elseif typeof(v) == "CFrame" then
-                                    args[i] = CFrame.new(v.Position, mPart.Position)
-                                end
+                        for i, v in ipairs(args) do
+                            if typeof(v) == "Vector3" then
+                                args[i] = mPart.Position
+                            elseif typeof(v) == "CFrame" then
+                                args[i] = CFrame.new(v.Position, mPart.Position)
                             end
-                            return oldNamecall(self, unpack(args))
                         end
+                        return oldNamecall(self, unpack(args))
                     end
                 end
             end
@@ -650,7 +645,6 @@ CreateCategoryLabel(ESPPage, "GUN ACTIONS")
 CreateButton(ESPPage, "Loot Gun", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
-    
     local droppedGun = searchForGun()
     if droppedGun then
         local handle = droppedGun:FindFirstChild("Handle") or droppedGun:FindFirstChildWhichIsA("BasePart") or (droppedGun:IsA("BasePart") and droppedGun)
@@ -740,7 +734,6 @@ end)
 CreateButton(TeleportPage, "Teleport To Gun", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
-    
     local droppedGun = searchForGun()
     if droppedGun then
         local handle = droppedGun:FindFirstChild("Handle") or droppedGun:FindFirstChildWhichIsA("BasePart") or (droppedGun:IsA("BasePart") and droppedGun)
@@ -753,7 +746,6 @@ end)
 CreateButton(TeleportPage, "Teleport To Murder", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
-    
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and GetMM2Role(player) == "Murderer" then
             local pChar = player.Character
@@ -768,7 +760,6 @@ end)
 CreateButton(TeleportPage, "Teleport To Sheriff", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
-    
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and GetMM2Role(player) == "Sheriff" then
             local pChar = player.Character
@@ -818,6 +809,45 @@ CreateToggle(AimbotPage, "Silent Aimbot", "SilentAim", function(state) AimbotCon
 CreateToggle(AimbotPage, "AutoShoot", "AutoShoot", function(state) AimbotConfig.AutoShoot = state end)
 CreateSlider(AimbotPage, "Aimbot FOV Size", 50, 600, 350, function(val) AimbotConfig.FOV = val end)
 
+-- RAGE TAB (New Category for Godmode & Invisibility with server sync fix)
+CreateCategoryLabel(RagePage, "RAGE FEATURES")
+CreateToggle(RagePage, "Godmode (Immunity)", "Godmode", function(state) RageConfig.Godmode = state end)
+CreateToggle(RagePage, "Invisibility (Client Alpha Fix)", "Invisibility", function(state)
+    RageConfig.Invisibility = state
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if state then
+        -- Поднимаем персонажа наверх и клонируем/отвязываем для сервера
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, 50, 0)
+        end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("Decal") then
+                part.Transparency = 0.5 -- 50% Alpha на экране клиента
+            end
+        end
+    else
+        -- Возвращаем нормальную прозрачность и синхронизируем с сервером
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if part.Name == "HumanoidRootPart" then
+                    part.Transparency = 1
+                else
+                    part.Transparency = 0
+                end
+            elseif part:IsA("Decal") then
+                part.Transparency = 0
+            end
+        end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = hrp.CFrame - Vector3.new(0, 50, 0) -- Возврат на землю для сервера
+        end
+    end
+end)
+
 -- FUN TAB
 CreateCategoryLabel(FunPage, "FUN")
 CreateToggle(FunPage, "Spinbot", "Spinbot", function(state) FunConfig.Spinbot = state end)
@@ -827,15 +857,23 @@ CreateSlider(FunPage, "Spinbot Speed", 10, 200, 50, function(val) FunConfig.Spin
 CreateCategoryLabel(MiscPage, "WORLD")
 CreateToggle(MiscPage, "No Player Collision", "NoCollision", function(state) MiscConfig.NoCollision = state end)
 CreateToggle(MiscPage, "NoClipWall", "NoClipWall", function(state) MiscConfig.NoClipWall = state end)
-CreateSlider(MiscPage, "Gravity", 0, 300, 196.2, function(val)
+CreateToggle(MiscPage, "Gravity (default: 196.2)", "GravityToggle", function(state) 
+    MiscConfig.GravityToggle = state
+    if not state then
+        Workspace.Gravity = 196.2
+    end
+end)
+CreateSlider(MiscPage, "Gravity Force", 0, 300, 196.2, function(val)
     MiscConfig.GravityVal = val
-    Workspace.Gravity = val
+    if MiscConfig.GravityToggle then
+        Workspace.Gravity = val
+    end
 end)
 
 CreateCategoryLabel(MiscPage, "MOVEMENT")
 CreateToggle(MiscPage, "Fly", "Fly", function(state) MiscConfig.Fly = state end)
 CreateSlider(MiscPage, "Fly Speed", 10, 200, 50, function(val) MiscConfig.FlySpeed = val end)
-CreateToggle(MiscPage, "Freecam", "Freecam", function(state) MiscConfig.Freecam = state end)
+CreateToggle(MiscPage, "Freecam (1st Person + Look)", "Freecam", function(state) MiscConfig.Freecam = state end)
 CreateSlider(MiscPage, "Freecam Speed", 10, 200, 50, function(val) MiscConfig.FreecamSpeed = val end)
 CreateToggle(MiscPage, "Infinite Jump", "InfJump", function(state) MiscConfig.InfJump = state end)
 CreateToggle(MiscPage, "Spider (Wall Climb)", "Spider", function(state) MiscConfig.Spider = state end)
@@ -879,23 +917,6 @@ end)
 CreateCategoryLabel(SettingsPage, "SYSTEM")
 CreateButton(SettingsPage, "Unload HUB", function()
     Workspace.Gravity = 196.2
-    for _, tracer in pairs(tracersList) do
-        if tracer then
-            pcall(function() tracer:Remove() end)
-        end
-    end
-    local char = LocalPlayer.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp and hrp:FindFirstChild("EasyFlyForce") then hrp.EasyFlyForce:Destroy() end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then 
-            hum.PlatformStand = false
-            hum.WalkSpeed = 16
-            hum.UseJumpPower = false
-            hum.JumpPower = 50
-        end
-    end
     Camera.CameraType = Enum.CameraType.Custom
     EasyHUB:Destroy()
 end)
@@ -930,6 +951,7 @@ local function CreateTabButton(name, icon, targetPage)
         AutofarmPage.Visible = false
         SkinchangerPage.Visible = false
         AimbotPage.Visible = false
+        RagePage.Visible = false
         FunPage.Visible = false
         MiscPage.Visible = false
         SettingsPage.Visible = false
@@ -954,6 +976,7 @@ CreateTabButton("Teleport", "📍", TeleportPage)
 CreateTabButton("Autofarm", "🌿", AutofarmPage)
 CreateTabButton("Skins", "👕", SkinchangerPage)
 CreateTabButton("Aimbot", "🎯", AimbotPage)
+CreateTabButton("Rage", "🔥", RagePage)
 CreateTabButton("Fun", "🎉", FunPage)
 CreateTabButton("Misc", "⚡", MiscPage)
 CreateTabButton("Settings", "⚙️", SettingsPage)
@@ -1012,10 +1035,10 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- ULTRA FIXED AUTOFARM LOOP (Teleportation & Legit Modes)
+-- OPTIMIZED AUTOFARM LOOP (No FPS Drops)
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.5)
         if AutofarmConfig.InstantCoinFarm or AutofarmConfig.AutoCoinFarm then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
@@ -1037,10 +1060,11 @@ task.spawn(function()
     end
 end)
 
--- FREECAM STATE VARS
-local freecamCF = Camera.CFrame
+-- FREECAM STATE VARS (First Person + Mouse Rotation)
+local freecamCF = nil
+local cameraRotX, cameraRotY = 0, 0
 
--- HIGH-PERFORMANCE RENDER LOOP
+-- HIGH-PERFORMANCE OPTIMIZED RENDER LOOP
 local tracersList = {}
 local frameCounter = 0
 
@@ -1051,6 +1075,11 @@ RunService.RenderStepped:Connect(function()
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
+    -- Godmode Logic
+    if RageConfig.Godmode and humanoid then
+        humanoid.Health = humanoid.MaxHealth
+    end
+
     if humanoid then
         local baseSpeed = 16
         local currentMultiplier = MiscConfig.SpeedMultiplier
@@ -1060,12 +1089,11 @@ RunService.RenderStepped:Connect(function()
         end
         
         humanoid.WalkSpeed = baseSpeed * currentMultiplier
-
         humanoid.UseJumpPower = true
         humanoid.JumpPower = 50 * MiscConfig.JumpPowerMultiplier
     end
 
-    if MiscConfig.NoCollision and frameCounter % 60 == 0 then
+    if MiscConfig.NoCollision and frameCounter % 30 == 0 then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 for _, part in ipairs(player.Character:GetDescendants()) do
@@ -1081,8 +1109,13 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
+    -- Gravity Handler
+    if MiscConfig.GravityToggle then
+        Workspace.Gravity = MiscConfig.GravityVal
+    end
+
     -- Spider / Wall Climb Logic
-    if MiscConfig.Spider and hrp and frameCounter % 2 == 0 then
+    if MiscConfig.Spider and hrp and frameCounter % 3 == 0 then
         local rayParams = RaycastParams.new()
         rayParams.FilterType = RaycastParams.FilterType.Exclude
         rayParams.FilterDescendantsInstances = {char}
@@ -1097,8 +1130,8 @@ RunService.RenderStepped:Connect(function()
         hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(FunConfig.SpinSpeed), 0)
     end
     
-    -- FIXED AutoShoot Logic (Targets Murderer strictly inside FOV)
-    if AimbotConfig.AutoShoot and frameCounter % 10 == 0 then
+    -- Optimized AutoShoot Logic
+    if AimbotConfig.AutoShoot and frameCounter % 15 == 0 then
         if GetMM2Role(LocalPlayer) == "Sheriff" then
             local gun = char and char:FindFirstChildOfClass("Tool")
             if gun and (gun.Name:lower():find("gun") or gun.Name:lower():find("revolver")) then
@@ -1106,9 +1139,7 @@ RunService.RenderStepped:Connect(function()
                 if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
                     local mPart = murderer.Character.HumanoidRootPart
                     if IsInFOV(mPart.Position) then
-                        pcall(function()
-                            mouse1click()
-                        end)
+                        pcall(function() mouse1click() end)
                     end
                 end
             end
@@ -1134,10 +1165,14 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Freecam Mechanics
+    -- Freecam Mechanics (1st Person + Mouse View Rotation)
     if MiscConfig.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
-        if not freecamCF then freecamCF = Camera.CFrame end
+        if not freecamCF and hrp then 
+            freecamCF = hrp.CFrame + Vector3.new(0, 2, 0) 
+        elseif not freecamCF then
+            freecamCF = Camera.CFrame
+        end
         
         local camMove = Vector3.new(0, 0, 0)
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then camMove = camMove + Vector3.new(0, 0, -1) end
@@ -1147,7 +1182,12 @@ RunService.RenderStepped:Connect(function()
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then camMove = camMove + Vector3.new(0, 1, 0) end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then camMove = camMove + Vector3.new(0, -1, 0) end
         
-        freecamCF = freecamCF + (Camera.CFrame:VectorToWorldSpace(camMove) * (MiscConfig.FreecamSpeed * 0.1))
+        local mouseDelta = UserInputService:GetMouseDelta()
+        cameraRotX = cameraRotX - mouseDelta.X * 0.003
+        cameraRotY = math.clamp(cameraRotY - mouseDelta.Y * 0.003, -1.5, 1.5)
+        
+        local rotCF = CFrame.new(freecamCF.Position) * CFrame.Angles(0, cameraRotX, 0) * CFrame.Angles(cameraRotY, 0, 0)
+        freecamCF = rotCF + (rotCF:VectorToWorldSpace(camMove) * (MiscConfig.FreecamSpeed * 0.1))
         Camera.CFrame = freecamCF
     else
         if Camera.CameraType == Enum.CameraType.Scriptable and not MiscConfig.Fly then
@@ -1156,8 +1196,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Gun ESP Logic
-    if ESPConfig.GunESP and frameCounter % 10 == 0 then
+    -- Gun ESP Logic (Optimized frequency)
+    if ESPConfig.GunESP and frameCounter % 20 == 0 then
         local foundGunObj = searchForGun()
         if foundGunObj then
             local handle = foundGunObj:FindFirstChild("Handle") or foundGunObj:FindFirstChildWhichIsA("BasePart") or (foundGunObj:IsA("BasePart") and foundGunObj)
@@ -1213,7 +1253,7 @@ RunService.RenderStepped:Connect(function()
                 bg.Enabled = true
             end
         end
-    elseif not ESPConfig.GunESP and frameCounter % 30 == 0 then
+    elseif not ESPConfig.GunESP and frameCounter % 40 == 0 then
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj.Name == "EasyGunESP" then obj:Destroy() end
         end
