@@ -170,6 +170,7 @@ local function CreatePage()
 end
 
 local ESPPage = CreatePage()
+local TeleportPage = CreatePage()
 local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
 ESPPage.Visible = true
@@ -299,7 +300,6 @@ local function CreateToggle(parent, name, idName, callback)
         listeningForKey = {btn = BindButton, id = dataRef}
     end)
 
-    -- Full block click toggle action instead of partial restrictive frame collision
     ToggleButton.MouseButton1Click:Connect(function()
         dataRef.state = not dataRef.state
         callback(dataRef.state)
@@ -310,6 +310,27 @@ local function CreateToggle(parent, name, idName, callback)
         TweenService:Create(Switch, TweenInfo.new(0.2), {BackgroundColor3 = goalSwitchColor}):Play()
         TweenService:Create(Circle, TweenInfo.new(0.2), {Position = goalCirclePos}):Play()
     end)
+end
+
+-- Button helper for Teleport actions
+local function CreateButton(parent, name, callback)
+    local ActionButton = Instance.new("TextButton")
+    ActionButton.Parent = parent
+    ActionButton.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+    ActionButton.Size = UDim2.new(1, -10, 0, 40)
+    ActionButton.AutoButtonColor = true
+    ActionButton.Font = Enum.Font.GothamMedium
+    ActionButton.Text = "   " .. name
+    ActionButton.TextColor3 = Color3.fromRGB(220, 220, 230)
+    ActionButton.TextSize = 14
+    ActionButton.TextXAlignment = Enum.TextXAlignment.Left
+    ActionButton.ZIndex = 6
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = ActionButton
+
+    ActionButton.MouseButton1Click:Connect(callback)
 end
 
 local function CreateSlider(parent, name, min, max, default, callback)
@@ -499,6 +520,68 @@ CreateDropdown(ESPPage, "Sheriff Color", {"Blue", "Green", "Yellow", "Red", "Pur
     elseif val == "Purple" then ESPConfig.SheriffColor = Color3.fromRGB(155, 89, 182) end
 end)
 
+-- TELEPORT TAB
+CreateCategoryLabel(TeleportPage, "TELEPORTS")
+CreateButton(TeleportPage, "Teleport To Lobby", function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(0.23, -66.87, -26.54)
+    end
+end)
+
+-- MM2 Role helper for Teleporting
+local function GetMM2Role(player)
+    local character = player.Character
+    if not character then return "Innocent" end
+    
+    local containers = {player:FindFirstChild("Backpack"), character}
+    for _, container in ipairs(containers) do
+        if container then
+            for _, item in ipairs(container:GetChildren()) do
+                if item:IsA("Tool") then
+                    local itemName = item.Name:lower()
+                    if itemName == "knife" or itemName:find("knife") then
+                        return "Murderer"
+                    elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
+                        return "Sheriff"
+                    end
+                end
+            end
+        end
+    end
+    return "Innocent"
+end
+
+CreateButton(TeleportPage, "Teleport To Murder", function()
+    local char = LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and GetMM2Role(player) == "Murderer" then
+            local pChar = player.Character
+            if pChar and pChar:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = pChar.HumanoidRootPart.CFrame
+                break
+            end
+        end
+    end
+end)
+
+CreateButton(TeleportPage, "Teleport To Sheriff", function()
+    local char = LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and GetMM2Role(player) == "Sheriff" then
+            local pChar = player.Character
+            if pChar and pChar:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = pChar.HumanoidRootPart.CFrame
+                break
+            end
+        end
+    end
+end)
+
 -- MISC TAB
 CreateCategoryLabel(MiscPage, "WORLD")
 CreateToggle(MiscPage, "No Player Collision", "NoCollision", function(state) MiscConfig.NoCollision = state end)
@@ -555,6 +638,7 @@ local function CreateTabButton(name, icon, targetPage)
 
     TabBtn.MouseButton1Click:Connect(function()
         ESPPage.Visible = false
+        TeleportPage.Visible = false
         MiscPage.Visible = false
         SettingsPage.Visible = false
         targetPage.Visible = true
@@ -562,6 +646,7 @@ local function CreateTabButton(name, icon, targetPage)
 end
 
 CreateTabButton("ESP", "🛡️", ESPPage)
+CreateTabButton("Teleport", "📍", TeleportPage)
 CreateTabButton("Misc", "⚡", MiscPage)
 CreateTabButton("Settings", "⚙️", SettingsPage)
 
@@ -604,31 +689,6 @@ UserInputService.InputChanged:Connect(function(input)
         MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
--- Accurate MM2 Role Detection (Fixed false positive detection loop)
-local function GetMM2Role(player)
-    local character = player.Character
-    if not character then return "Innocent" end
-    
-    -- Check backpack and character tools/items specifically
-    local containers = {player:FindFirstChild("Backpack"), character}
-    for _, container in ipairs(containers) do
-        if container then
-            for _, item in ipairs(container:GetChildren()) do
-                if item:IsA("Tool") then
-                    local itemName = item.Name:lower()
-                    if itemName == "knife" or itemName:find("knife") then
-                        return "Murderer"
-                    elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
-                        return "Sheriff"
-                    end
-                end
-            end
-        end
-    end
-
-    return "Innocent"
-end
 
 -- MAIN LOOP
 local tracersList = {}
@@ -725,7 +785,6 @@ RunService.RenderStepped:Connect(function()
                     tracersList[player] = line
                 end
                 
-                -- Fixed Tracer Color Logic: White tracer color setting works properly without hardcoded role overriding unless configured
                 local tracerColorFinal = ESPConfig.TracersColor
                 if ESPConfig.TracersColor == Color3.fromRGB(255, 255, 255) then
                     tracerColorFinal = Color3.fromRGB(255, 255, 255)
