@@ -111,7 +111,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v4.0 Rage"
+HubSubTitle.Text = "v4.1 Rage Fix"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -517,7 +517,7 @@ local RageConfig = {Godmode = false, Invisibility = false}
 local FunConfig = {Spinbot = false, SpinSpeed = 50}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0, InfJump = false, Spider = false, JumpPowerMultiplier = 1.0, GravityToggle = false, GravityVal = 196.2, Freecam = false, FreecamSpeed = 50}
 
--- ROBUST GAME OBJECT FINDERS
+-- ROBUST GAME OBJECT FINDERS (Fixed Autofarm searcher)
 local function searchForGun()
     for _, obj in ipairs(Workspace:GetDescendants()) do
         if obj:IsA("Tool") or obj:IsA("Model") or obj:IsA("BasePart") then
@@ -531,15 +531,13 @@ local function searchForGun()
 end
 
 local function searchForCoin()
-    local containers = {Workspace:FindFirstChild("CoinContainer"), Workspace:FindFirstChild("Coins"), Workspace:FindFirstChild("Map")}
-    for _, container in ipairs(containers) do
-        if container then
-            for _, coin in ipairs(container:GetDescendants()) do
-                local n = coin.Name:lower()
-                if n:find("coin") or n == "basepart" or n == "handle" then
-                    if coin:IsA("BasePart") then
-                        return coin
-                    end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local n = obj.Name:lower()
+            if n:find("coin") or n == "handle" or n:find("gold") or n:find("cash") then
+                -- Убедимся что это не часть модельки игрока
+                if not obj:IsDescendantOf(Players.LocalPlayer.Character) then
+                    return obj
                 end
             end
         end
@@ -587,7 +585,7 @@ local function IsInFOV(targetPos)
     return false
 end
 
--- FIXED SILENT AIM & AUTOSHOOT HOOK (Robust MM2 Event interception)
+-- SILENT AIM & AUTOSHOOT HOOK
 pcall(function()
     local mt = getrawmetatable(game)
     local oldNamecall = mt.__namecall
@@ -809,27 +807,31 @@ CreateToggle(AimbotPage, "Silent Aimbot", "SilentAim", function(state) AimbotCon
 CreateToggle(AimbotPage, "AutoShoot", "AutoShoot", function(state) AimbotConfig.AutoShoot = state end)
 CreateSlider(AimbotPage, "Aimbot FOV Size", 50, 600, 350, function(val) AimbotConfig.FOV = val end)
 
--- RAGE TAB (New Category for Godmode & Invisibility with server sync fix)
+-- RAGE TAB (Fixed Invisibility Sync)
+local savedRealPosition = nil
+
 CreateCategoryLabel(RagePage, "RAGE FEATURES")
 CreateToggle(RagePage, "Godmode (Immunity)", "Godmode", function(state) RageConfig.Godmode = state end)
-CreateToggle(RagePage, "Invisibility (Client Alpha Fix)", "Invisibility", function(state)
+CreateToggle(RagePage, "Invisibility (Server +50Y Sync)", "Invisibility", function(state)
     RageConfig.Invisibility = state
     local char = LocalPlayer.Character
     if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     
     if state then
-        -- Поднимаем персонажа наверх и клонируем/отвязываем для сервера
-        local hrp = char:FindFirstChild("HumanoidRootPart")
         if hrp then
-            hrp.CFrame = hrp.CFrame + Vector3.new(0, 50, 0)
+            savedRealPosition = hrp.CFrame -- Сохраняем реальную позицию на земле
+            -- Переносим персонажа на +50Y для сервера, чтобы он думал, что мы там стоим
+            hrp.CFrame = savedRealPosition + Vector3.new(0, 50, 0)
         end
+        -- Делаем визуал на 50% прозрачности
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") or part:IsA("Decal") then
-                part.Transparency = 0.5 -- 50% Alpha на экране клиента
+                part.Transparency = 0.5
             end
         end
     else
-        -- Возвращаем нормальную прозрачность и синхронизируем с сервером
+        -- Возвращаем нормальную прозрачность
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
                 if part.Name == "HumanoidRootPart" then
@@ -841,9 +843,9 @@ CreateToggle(RagePage, "Invisibility (Client Alpha Fix)", "Invisibility", functi
                 part.Transparency = 0
             end
         end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = hrp.CFrame - Vector3.new(0, 50, 0) -- Возврат на землю для сервера
+        -- Возвращаем на сохраненную точку земли при отключении
+        if hrp and savedRealPosition then
+            hrp.CFrame = savedRealPosition
         end
     end
 end)
@@ -1035,10 +1037,10 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- OPTIMIZED AUTOFARM LOOP (No FPS Drops)
+-- FIXED AUTOFARM LOOP (Global coin searcher)
 task.spawn(function()
     while true do
-        task.wait(0.5)
+        task.wait(0.4)
         if AutofarmConfig.InstantCoinFarm or AutofarmConfig.AutoCoinFarm then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
@@ -1060,11 +1062,11 @@ task.spawn(function()
     end
 end)
 
--- FREECAM STATE VARS (First Person + Mouse Rotation)
+-- FREECAM STATE VARS
 local freecamCF = nil
 local cameraRotX, cameraRotY = 0, 0
 
--- HIGH-PERFORMANCE OPTIMIZED RENDER LOOP
+-- HIGH-PERFORMANCE RENDER LOOP
 local tracersList = {}
 local frameCounter = 0
 
@@ -1130,7 +1132,7 @@ RunService.RenderStepped:Connect(function()
         hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(FunConfig.SpinSpeed), 0)
     end
     
-    -- Optimized AutoShoot Logic
+    -- AutoShoot Logic
     if AimbotConfig.AutoShoot and frameCounter % 15 == 0 then
         if GetMM2Role(LocalPlayer) == "Sheriff" then
             local gun = char and char:FindFirstChildOfClass("Tool")
@@ -1165,7 +1167,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Freecam Mechanics (1st Person + Mouse View Rotation)
+    -- Freecam Mechanics
     if MiscConfig.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
         if not freecamCF and hrp then 
@@ -1196,7 +1198,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Gun ESP Logic (Optimized frequency)
+    -- Gun ESP Logic
     if ESPConfig.GunESP and frameCounter % 20 == 0 then
         local foundGunObj = searchForGun()
         if foundGunObj then
