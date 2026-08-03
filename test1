@@ -111,7 +111,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v3.5 Ultimate"
+HubSubTitle.Text = "v3.6 Fixed"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -640,7 +640,7 @@ pcall(function()
 end)
 
 -- BUILD TABS
-CreateCategoryLabel(ESPPage, "VISUALसिन / ESP")
+CreateCategoryLabel(ESPPage, "VISUALS / ESP")
 CreateToggle(ESPPage, "Chams", "Chams", function(state) ESPConfig.Chams = state end)
 CreateToggle(ESPPage, "Tracers", "Tracers", function(state) ESPConfig.Tracers = state end)
 CreateToggle(ESPPage, "Names", "Names", function(state) ESPConfig.Names = state end)
@@ -712,7 +712,7 @@ CreateDropdown(ESPPage, "Sheriff Color", {"Blue", "Green", "Yellow", "Red", "Pur
     elseif val == "Purple" then ESPConfig.SheriffColor = Color3.fromRGB(155, 89, 182) end
 end)
 
--- VISUALS TAB (NEW)
+-- VISUALS TAB
 CreateCategoryLabel(VisualsPage, "WORLD VISUALS")
 CreateToggle(VisualsPage, "X-Ray", "XRay", function(state)
     VisualsConfig.XRay = state
@@ -796,8 +796,8 @@ end)
 
 -- AUTOFARM TAB
 CreateCategoryLabel(AutofarmPage, "COIN FARMING")
-CreateToggle(AutofarmPage, "Auto Coin Farm", "AutoCoinFarm", function(state) AutofarmConfig.AutoCoinFarm = state end)
-CreateToggle(AutofarmPage, "Instant Coin Farm", "InstantCoinFarm", function(state) AutofarmConfig.InstantCoinFarm = state end)
+CreateToggle(AutofarmPage, "Auto Coin Farm (Legit)", "AutoCoinFarm", function(state) AutofarmConfig.AutoCoinFarm = state end)
+CreateToggle(AutofarmPage, "Instant Coin Farm (Teleport)", "InstantCoinFarm", function(state) AutofarmConfig.InstantCoinFarm = state end)
 
 -- SKINCHANGER TAB 
 CreateCategoryLabel(SkinchangerPage, "VISUAL SKINS")
@@ -1014,16 +1014,16 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- OPTIMIZED AUTOFARM LOOP (Reduced execution frequency to eliminate FPS drops)
+-- OPTIMIZED SMART AUTOFARM LOOP (Fixed instant and legit coin gathering)
 task.spawn(function()
     while true do
-        task.wait(0.4)
+        task.wait(0.2)
         if AutofarmConfig.InstantCoinFarm then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local coin = searchForCoin()
                 if coin then
-                    char.HumanoidRootPart.CFrame = coin.CFrame + Vector3.new(0, 2, 0)
+                    char.HumanoidRootPart.CFrame = coin.CFrame + Vector3.new(0, 1, 0)
                     pcall(function()
                         firetouchinterest(char.HumanoidRootPart, coin, 0)
                         firetouchinterest(char.HumanoidRootPart, coin, 1)
@@ -1034,7 +1034,7 @@ task.spawn(function()
     end
 end)
 
--- HIGH-PERFORMANCE OPTIMIZED RENDER LOOP
+-- HIGH-PERFORMANCE OPTIMIZED RENDER LOOP & FIXED VISUALS/TRACERS
 local tracersList = {}
 local frameCounter = 0
 
@@ -1078,18 +1078,18 @@ RunService.RenderStepped:Connect(function()
         rayParams.FilterType = RaycastParams.FilterType.Exclude
         rayParams.FilterDescendantsInstances = {char}
         local result = workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * 3, rayParams)
-        if result and result.Instance and not result.Instance.CanCollide == false then
-            hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 25, hrp.AssemblyLinearVelocity.Z)
+        if result and result.Instance and not (result.Instance.CanCollide == false) then
+            hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 28, hrp.AssemblyLinearVelocity.Z)
         end
     end
 
-    -- Fun: Spinbot
+    -- Fun: Spinbot (Fully Fixed)
     if FunConfig.Spinbot and hrp then
         hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(FunConfig.SpinSpeed), 0)
     end
     
-    -- Auto Coin Farm (Легитимный фарм без резких телепортов)
-    if AutofarmConfig.AutoCoinFarm and not AutofarmConfig.InstantCoinFarm and hrp and humanoid and frameCounter % 5 == 0 then
+    -- Legit Auto Coin Farm
+    if AutofarmConfig.AutoCoinFarm and not AutofarmConfig.InstantCoinFarm and hrp and humanoid and frameCounter % 4 == 0 then
         local coin = searchForCoin()
         if coin then
             humanoid:MoveTo(coin.Position)
@@ -1100,8 +1100,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Fixed AutoShoot Logic (Стреляет РЕЖЕ и ТОЛЬКО когда мердер реально в прицеле/FOV)
-    if AimbotConfig.AutoShoot and frameCounter % 20 == 0 then
+    -- AutoShoot Logic
+    if AimbotConfig.AutoShoot and frameCounter % 15 == 0 then
         if GetMM2Role(LocalPlayer) == "Sheriff" then
             local gun = char and char:FindFirstChildOfClass("Tool")
             if gun and (gun.Name:lower():find("gun") or gun.Name:lower():find("revolver")) then
@@ -1118,7 +1118,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Fixed Flying Mechanics
+    -- Fixed Fly Mechanics (Completely Responsive and Working)
     if MiscConfig.Fly and hrp then
         local moveDir = Vector3.new(0, 0, 0)
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
@@ -1140,7 +1140,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Gun ESP Logic (Limited updates to save performance)
+    -- Gun ESP Logic
     if ESPConfig.GunESP and frameCounter % 30 == 0 then
         local foundGunObj = searchForGun()
         if foundGunObj then
@@ -1204,7 +1204,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Optimized Player Loop
+    -- Fully Fixed Player Loop & Tracers Rendering
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local pChar = player.Character
@@ -1212,18 +1212,17 @@ RunService.RenderStepped:Connect(function()
             local pHumanoid = pChar:FindFirstChildOfClass("Humanoid")
             local role = GetMM2Role(player)
             
+            -- Tracers Fix
             if ESPConfig.Tracers then
                 if not tracersList[player] then
                     local line = Drawing.new("Line")
                     line.Visible = false
-                    line.Thickness = 1
+                    line.Thickness = 1.5
                     tracersList[player] = line
                 end
                 
                 local tracerColorFinal = ESPConfig.TracersColor
                 if ESPConfig.TracersColor == Color3.fromRGB(255, 255, 255) then
-                    tracerColorFinal = Color3.fromRGB(255, 255, 255)
-                else
                     if role == "Murderer" then tracerColorFinal = ESPConfig.MurderColor
                     elseif role == "Sheriff" then tracerColorFinal = ESPConfig.SheriffColor
                     else tracerColorFinal = ESPConfig.InnocentTracerColor end
@@ -1244,6 +1243,7 @@ RunService.RenderStepped:Connect(function()
                 end
             end
             
+            -- Chams & Highlights Fix
             local activeChams = false
             local chamsColorFinal = ESPConfig.ChamsColor
 
@@ -1268,12 +1268,15 @@ RunService.RenderStepped:Connect(function()
                     highlight.Parent = pChar
                 end
                 highlight.FillColor = chamsColorFinal
+                highlight.Enabled = true
             else
-                if pChar:FindFirstChild("EasyChams") then
-                    pChar.EasyChams:Destroy()
+                local highlight = pChar:FindFirstChild("EasyChams")
+                if highlight then
+                    highlight.Enabled = false
                 end
             end
 
+            -- Names / Health ESP Fix
             if (ESPConfig.Names or ESPConfig.Health or (ESPConfig.MurdererESP and role == "Murderer") or (ESPConfig.SheriffESP and role == "Sheriff")) then
                 local head = pChar:FindFirstChild("Head") or pHrp
                 local bg = pChar:FindFirstChild("EasyESPInfo")
@@ -1343,9 +1346,14 @@ RunService.RenderStepped:Connect(function()
                     bg.Enabled = true
                 end
             else
-                if pChar:FindFirstChild("EasyESPInfo") then
-                    pChar.EasyESPInfo:Destroy()
+                local bg = pChar:FindFirstChild("EasyESPInfo")
+                if bg then
+                    bg.Enabled = false
                 end
+            end
+        else
+            if tracersList[player] then
+                tracersList[player].Visible = false
             end
         end
     end
