@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -172,7 +173,7 @@ local ESPPage = CreatePage()
 local TeleportPage = CreatePage()
 local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
-TeleportPage.Visible = true -- Открываем Teleport по умолчанию для проверки
+ESPPage.Visible = true
 
 local function CreateCategoryLabel(parent, text)
     local lbl = Instance.new("TextLabel")
@@ -466,11 +467,11 @@ local ESPConfig = {
     HealthMode = "Text",
     MurdererESP = false,
     SheriffESP = false,
-    ChamsColor = Color3.fromRGB(46, 204, 113),       
-    TracersColor = Color3.fromRGB(255, 255, 255),    
-    InnocentTracerColor = Color3.fromRGB(46, 204, 113), 
-    MurderColor = Color3.fromRGB(231, 76, 60),       
-    SheriffColor = Color3.fromRGB(52, 152, 219)      
+    ChamsColor = Color3.fromRGB(46, 204, 113),       -- Green
+    TracersColor = Color3.fromRGB(255, 255, 255),    -- White
+    InnocentTracerColor = Color3.fromRGB(46, 204, 113), -- Green
+    MurderColor = Color3.fromRGB(231, 76, 60),       -- Red
+    SheriffColor = Color3.fromRGB(52, 152, 219)      -- Blue
 }
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
 
@@ -519,9 +520,8 @@ CreateDropdown(ESPPage, "Sheriff Color", {"Blue", "Green", "Yellow", "Red", "Pur
     elseif val == "Purple" then ESPConfig.SheriffColor = Color3.fromRGB(155, 89, 182) end
 end)
 
--- TELEPORT TAB С КАТЕГОРИЕЙ И ТРЕМЯ КНОПКАМИ
-CreateCategoryLabel(TeleportPage, "TELEPORT")
-
+-- TELEPORT TAB
+CreateCategoryLabel(TeleportPage, "TELEPORTS")
 CreateButton(TeleportPage, "Teleport To Lobby", function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
