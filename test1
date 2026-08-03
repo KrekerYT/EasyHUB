@@ -3,7 +3,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
@@ -313,7 +312,6 @@ local function CreateToggle(parent, name, idName, callback)
     end)
 end
 
--- Button helper for actions
 local function CreateButton(parent, name, callback)
     local ActionButton = Instance.new("TextButton")
     ActionButton.Parent = parent
@@ -469,13 +467,26 @@ local ESPConfig = {
     MurdererESP = false,
     SheriffESP = false,
     GunESP = false,
-    ChamsColor = Color3.fromRGB(46, 204, 113),       -- Green
-    TracersColor = Color3.fromRGB(255, 255, 255),    -- White
-    InnocentTracerColor = Color3.fromRGB(46, 204, 113), -- Green
-    MurderColor = Color3.fromRGB(231, 76, 60),       -- Red
-    SheriffColor = Color3.fromRGB(52, 152, 219)      -- Blue
+    ChamsColor = Color3.fromRGB(46, 204, 113),
+    TracersColor = Color3.fromRGB(255, 255, 255),
+    InnocentTracerColor = Color3.fromRGB(46, 204, 113),
+    MurderColor = Color3.fromRGB(231, 76, 60),
+    SheriffColor = Color3.fromRGB(52, 152, 219)
 }
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
+
+-- GUN SEARCH HELPER
+local function searchForGun(parent)
+    for _, obj in ipairs(parent:GetChildren()) do
+        if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
+            return obj
+        elseif obj:IsA("Model") or obj:IsA("Folder") then
+            local found = searchForGun(obj)
+            if found then return found end
+        end
+    end
+    return nil
+end
 
 -- BUILD TABS
 CreateCategoryLabel(ESPPage, "VISUALS")
@@ -495,26 +506,16 @@ CreateButton(ESPPage, "Loot Gun", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
     
-    local function searchForGun(parent)
-        for _, obj in ipairs(parent:GetChildren()) do
-            if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
-                return obj
-            elseif obj:IsA("Model") or obj:IsA("Folder") then
-                local found = searchForGun(obj)
-                if found then return found end
-            end
-        end
-        return nil
-    end
-
     local droppedGun = searchForGun(Workspace)
     if droppedGun then
         local handle = droppedGun:FindFirstChild("Handle") or droppedGun:FindFirstChildWhichIsA("BasePart")
         if handle then
             char.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 2, 0)
             task.wait(0.1)
-            firetouchinterest(char.HumanoidRootPart, handle, 0)
-            firetouchinterest(char.HumanoidRootPart, handle, 1)
+            pcall(function()
+                firetouchinterest(char.HumanoidRootPart, handle, 0)
+                firetouchinterest(char.HumanoidRootPart, handle, 1)
+            end)
         end
     end
 end)
@@ -561,7 +562,19 @@ CreateButton(TeleportPage, "Teleport To Lobby", function()
     end
 end)
 
--- MM2 Role helper for Teleporting
+CreateButton(TeleportPage, "Teleport To Gun", function()
+    local char = LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
+    
+    local droppedGun = searchForGun(Workspace)
+    if droppedGun then
+        local handle = droppedGun:FindFirstChild("Handle") or droppedGun:FindFirstChildWhichIsA("BasePart")
+        if handle then
+            char.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 3, 0)
+        end
+    end
+end)
+
 local function GetMM2Role(player)
     local character = player.Character
     if not character then return "Innocent" end
@@ -771,24 +784,12 @@ RunService.RenderStepped:Connect(function()
         end
         
         local moveDir = Vector3.new(0, 0, 0)
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            moveDir = moveDir + Camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            moveDir = moveDir - Camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            moveDir = moveDir - Camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            moveDir = moveDir + Camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            moveDir = moveDir + Vector3.new(0, 1, 0)
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-            moveDir = moveDir - Vector3.new(0, 1, 0)
-        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
         
         bv.Velocity = moveDir * MiscConfig.FlySpeed
         humanoid.PlatformStand = true
@@ -801,22 +802,10 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Gun ESP Logic
+    -- Gun ESP Logic with 3D/Screen GUI button integration
     local foundGunObj = nil
-    local function findGunRecursive(parent)
-        for _, obj in ipairs(parent:GetChildren()) do
-            if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
-                return obj
-            elseif obj:IsA("Model") or obj:IsA("Folder") then
-                local found = findGunRecursive(obj)
-                if found then return found end
-            end
-        end
-        return nil
-    end
-
     if ESPConfig.GunESP then
-        foundGunObj = findGunRecursive(Workspace)
+        foundGunObj = searchForGun(Workspace)
     end
 
     if foundGunObj then
@@ -827,14 +816,14 @@ RunService.RenderStepped:Connect(function()
                 bg = Instance.new("BillboardGui")
                 bg.Name = "EasyGunESP"
                 bg.Adornee = handle
-                bg.Size = UDim2.new(0, 100, 0, 30)
-                bg.StudsOffset = Vector3.new(0, 2, 0)
+                bg.Size = UDim2.new(0, 160, 0, 50)
+                bg.StudsOffset = Vector3.new(0, 2.5, 0)
                 bg.AlwaysOnTop = true
                 bg.Parent = foundGunObj
 
                 local txt = Instance.new("TextLabel")
                 txt.Name = "GunText"
-                txt.Size = UDim2.new(1, 0, 1, 0)
+                txt.Size = UDim2.new(1, 0, 0, 20)
                 txt.BackgroundTransparency = 1
                 txt.Font = Enum.Font.GothamBold
                 txt.TextSize = 13
@@ -842,6 +831,33 @@ RunService.RenderStepped:Connect(function()
                 txt.TextStrokeTransparency = 0.4
                 txt.Text = "[DROP GUN]"
                 txt.Parent = bg
+
+                local lootBtn = Instance.new("TextButton")
+                lootBtn.Name = "LootButton"
+                lootBtn.Position = UDim2.new(0.15, 0, 0, 22)
+                lootBtn.Size = UDim2.new(0.7, 0, 0, 24)
+                lootBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+                lootBtn.Font = Enum.Font.GothamBold
+                lootBtn.TextSize = 11
+                lootBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                lootBtn.Text = "Loot Gun"
+                lootBtn.Parent = bg
+
+                local lCorner = Instance.new("UICorner")
+                lCorner.CornerRadius = UDim.new(0, 6)
+                lCorner.Parent = lootBtn
+
+                lootBtn.MouseButton1Click:Connect(function()
+                    local lChar = LocalPlayer.Character
+                    if lChar and lChar:FindFirstChild("HumanoidRootPart") then
+                        lChar.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 2, 0)
+                        task.wait(0.1)
+                        pcall(function()
+                            firetouchinterest(lChar.HumanoidRootPart, handle, 0)
+                            firetouchinterest(lChar.HumanoidRootPart, handle, 1)
+                        end)
+                    end
+                end)
             end
             bg.Enabled = true
         end
@@ -863,7 +879,6 @@ RunService.RenderStepped:Connect(function()
             local pHumanoid = pChar:FindFirstChildOfClass("Humanoid")
             local role = GetMM2Role(player)
             
-            -- Tracers Logic
             if ESPConfig.Tracers then
                 if not tracersList[player] then
                     local line = Drawing.new("Line")
@@ -876,13 +891,9 @@ RunService.RenderStepped:Connect(function()
                 if ESPConfig.TracersColor == Color3.fromRGB(255, 255, 255) then
                     tracerColorFinal = Color3.fromRGB(255, 255, 255)
                 else
-                    if role == "Murderer" then
-                        tracerColorFinal = ESPConfig.MurderColor
-                    elseif role == "Sheriff" then
-                        tracerColorFinal = ESPConfig.SheriffColor
-                    else
-                        tracerColorFinal = ESPConfig.InnocentTracerColor
-                    end
+                    if role == "Murderer" then tracerColorFinal = ESPConfig.MurderColor
+                    elseif role == "Sheriff" then tracerColorFinal = ESPConfig.SheriffColor
+                    else tracerColorFinal = ESPConfig.InnocentTracerColor end
                 end
                 tracersList[player].Color = tracerColorFinal
                 
@@ -900,7 +911,6 @@ RunService.RenderStepped:Connect(function()
                 end
             end
             
-            -- Chams & Role ESP Logic
             local activeChams = false
             local chamsColorFinal = ESPConfig.ChamsColor
 
@@ -931,7 +941,6 @@ RunService.RenderStepped:Connect(function()
                 end
             end
 
-            -- Names & Health Logic
             if (ESPConfig.Names or ESPConfig.Health or (ESPConfig.MurdererESP and role == "Murderer") or (ESPConfig.SheriffESP and role == "Sheriff")) then
                 local head = pChar:FindFirstChild("Head") or pHrp
                 local bg = pChar:FindFirstChild("EasyESPInfo")
