@@ -105,7 +105,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v2.8 Professional"
+HubSubTitle.Text = "v2.7 Professional"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -187,8 +187,9 @@ end
 
 local ESPPage = CreatePage()
 local TeleportPage = CreatePage()
-local AimPage = CreatePage()
 local SkinchangerPage = CreatePage()
+local AimbotPage = CreatePage()
+local FunPage = CreatePage()
 local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
 ESPPage.Visible = true
@@ -494,8 +495,28 @@ local ESPConfig = {
     SheriffColor = Color3.fromRGB(52, 152, 219)
 }
 local SkinConfig = {Headless = false}
-local AimConfig = {SilentAim = false, AutoShoot = false}
+local AimbotConfig = {SilentAim = false, AutoShoot = false, FOV = 200}
+local FunConfig = {Spinbot = false, SpinSpeed = 50}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
+
+-- ROBUST GUN FINDER
+local function searchForGun()
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
+            return obj
+        end
+    end
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        if obj:IsA("Model") or obj:IsA("Folder") then
+            for _, subObj in ipairs(obj:GetChildren()) do
+                if subObj:IsA("Tool") and (subObj.Name:lower():find("gun") or subObj.Name:lower():find("revolver") or subObj.Name:lower():find("sheriff")) then
+                    return subObj
+                end
+            end
+        end
+    end
+    return nil
+end
 
 local function GetMM2Role(player)
     local character = player.Character
@@ -519,54 +540,58 @@ local function GetMM2Role(player)
     return "Innocent"
 end
 
--- ROBUST GUN FINDER
-local function searchForGun()
-    for _, obj in ipairs(Workspace:GetChildren()) do
-        if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
-            return obj
-        end
-    end
-    for _, obj in ipairs(Workspace:GetChildren()) do
-        if obj:IsA("Model") or obj:IsA("Folder") then
-            for _, subObj in ipairs(obj:GetChildren()) do
-                if subObj:IsA("Tool") and (subObj.Name:lower():find("gun") or subObj.Name:lower():find("revolver") or subObj.Name:lower():find("sheriff")) then
-                    return subObj
-                end
-            end
+local function GetMurderer()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and GetMM2Role(player) == "Murderer" then
+            return player
         end
     end
     return nil
 end
 
-local function GetNearestMurderer()
-    if GetMM2Role(LocalPlayer) ~= "Sheriff" then return nil end
-    
-    local nearestDist = math.huge
-    local targetChar = nil
-    
-    local lChar = LocalPlayer.Character
-    local lHrp = lChar and lChar:FindFirstChild("HumanoidRootPart")
-    if not lHrp then return nil end
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and GetMM2Role(player) == "Murderer" then
-            local pChar = player.Character
-            local pHrp = pChar and pChar:FindFirstChild("HumanoidRootPart")
-            local pHum = pChar and pChar:FindFirstChildOfClass("Humanoid")
-            if pHrp and pHum and pHum.Health > 0 then
-                local dist = (lHrp.Position - pHrp.Position).Magnitude
-                if dist < nearestDist then
-                    nearestDist = dist
-                    targetChar = pChar
+local function IsInFOV(targetPos)
+    local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
+    if onScreen then
+        local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+        return dist <= AimbotConfig.FOV
+    end
+    return false
+end
+
+-- HOOK FOR SILENT AIM
+pcall(function()
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+
+        if not checkcaller() and AimbotConfig.SilentAim and GetMM2Role(LocalPlayer) == "Sheriff" then
+            if tostring(method) == "FireServer" or tostring(method) == "InvokeServer" then
+                if self.Name == "ShootGun" or self.Name == "Shoot" or self.Name:find("Fire") then
+                    local murderer = GetMurderer()
+                    if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
+                        if IsInFOV(murderer.Character.HumanoidRootPart.Position) then
+                            for i, v in ipairs(args) do
+                                if typeof(v) == "Vector3" then
+                                    args[i] = murderer.Character.HumanoidRootPart.Position
+                                end
+                            end
+                            return oldNamecall(self, unpack(args))
+                        end
+                    end
                 end
             end
         end
-    end
-    return targetChar
-end
+        return oldNamecall(self, ...)
+    end)
+    setreadonly(mt, true)
+end)
 
 -- BUILD TABS
-CreateCategoryLabel(ESPPage, "VISUALсы")
+CreateCategoryLabel(ESPPage, "VISUALS")
 CreateToggle(ESPPage, "Chams", "Chams", function(state) ESPConfig.Chams = state end)
 CreateToggle(ESPPage, "Tracers", "Tracers", function(state) ESPConfig.Tracers = state end)
 CreateToggle(ESPPage, "Names", "Names", function(state) ESPConfig.Names = state end)
@@ -690,36 +715,7 @@ CreateButton(TeleportPage, "Teleport To Sheriff", function()
     end
 end)
 
--- AIMBOT TAB (Sheriff)
-CreateCategoryLabel(AimPage, "SHERIFF AIM")
-CreateToggle(AimPage, "Silent Aimbot", "SilentAim", function(state) AimConfig.SilentAim = state end)
-CreateToggle(AimPage, "Auto Shoot", "AutoShoot", function(state) AimConfig.AutoShoot = state end)
-
--- Перехват выстрелов (Silent Aim)
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    
-    if AimConfig.SilentAim and GetMM2Role(LocalPlayer) == "Sheriff" then
-        if method == "FireServer" or method == "InvokeServer" then
-            local targetMurderer = GetNearestMurderer()
-            if targetMurderer and targetMurderer:FindFirstChild("HumanoidRootPart") then
-                for i, v in ipairs(args) do
-                    if typeof(v) == "Vector3" then
-                        args[i] = targetMurderer.HumanoidRootPart.Position
-                    elseif typeof(v) == "CFrame" then
-                        args[i] = CFrame.new(v.Position, targetMurderer.HumanoidRootPart.Position)
-                    end
-                end
-            end
-        end
-    end
-    
-    return oldNamecall(self, unpack(args))
-end)
-
--- SKINCHANGER TAB (Только Headless, Корблокс удален)
+-- SKINCHANGER TAB 
 CreateCategoryLabel(SkinchangerPage, "VISUAL SKINS")
 CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
     SkinConfig.Headless = state
@@ -745,6 +741,16 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
         end
     end
 end)
+
+-- AIMBOT TAB
+CreateCategoryLabel(AimbotPage, "SHERIFF AIM")
+CreateToggle(AimbotPage, "Silent Aimbot", "SilentAim", function(state) AimbotConfig.SilentAim = state end)
+CreateToggle(AimbotPage, "AutoShoot", "AutoShoot", function(state) AimbotConfig.AutoShoot = state end)
+
+-- FUN TAB
+CreateCategoryLabel(FunPage, "FUN")
+CreateToggle(FunPage, "Spinbot", "Spinbot", function(state) FunConfig.Spinbot = state end)
+CreateSlider(FunPage, "Spinbot Speed", 10, 200, 50, function(val) FunConfig.SpinSpeed = val end)
 
 -- MISC TAB
 CreateCategoryLabel(MiscPage, "WORLD")
@@ -836,8 +842,9 @@ local function CreateTabButton(name, icon, targetPage)
     TabBtn.MouseButton1Click:Connect(function()
         ESPPage.Visible = false
         TeleportPage.Visible = false
-        AimPage.Visible = false
         SkinchangerPage.Visible = false
+        AimbotPage.Visible = false
+        FunPage.Visible = false
         MiscPage.Visible = false
         SettingsPage.Visible = false
         targetPage.Visible = true
@@ -857,8 +864,9 @@ end
 
 CreateTabButton("ESP", "🛡️", ESPPage)
 CreateTabButton("Teleport", "📍", TeleportPage)
-CreateTabButton("Aimbot", "🎯", AimPage)
 CreateTabButton("Skins", "👕", SkinchangerPage)
+CreateTabButton("Aimbot", "🎯", AimbotPage)
+CreateTabButton("Fun", "🎉", FunPage)
 CreateTabButton("Misc", "⚡", MiscPage)
 CreateTabButton("Settings", "⚙️", SettingsPage)
 
@@ -929,19 +937,6 @@ RunService.RenderStepped:Connect(function()
         humanoid.WalkSpeed = baseSpeed * currentMultiplier
     end
 
-    -- Автошут для шерифа (автоматическая активация оружия при виде убийцы)
-    if AimConfig.AutoShoot and GetMM2Role(LocalPlayer) == "Sheriff" and frameCounter % 5 == 0 then
-        local murderer = GetNearestMurderer()
-        if murderer and murderer:FindFirstChild("HumanoidRootPart") then
-            local tool = char and char:FindFirstChildOfClass("Tool")
-            if tool and (tool.Name:lower():find("gun") or tool.Name:lower():find("revolver") or tool.Name:lower():find("sheriff")) then
-                pcall(function()
-                    tool:Activate()
-                end)
-            end
-        end
-    end
-
     if MiscConfig.NoCollision and frameCounter % 30 == 0 then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
@@ -957,7 +952,28 @@ RunService.RenderStepped:Connect(function()
             if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
+    
+    -- Fun: Spinbot
+    if FunConfig.Spinbot and hrp then
+        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(FunConfig.SpinSpeed), 0)
+    end
+    
+    -- AutoShoot Logic (Fires if Sheriff, target in FOV)
+    if AimbotConfig.AutoShoot and frameCounter % 15 == 0 then
+        if GetMM2Role(LocalPlayer) == "Sheriff" then
+            local gun = char:FindFirstChildOfClass("Tool")
+            if gun and (gun.Name:lower():find("gun") or gun.Name:lower():find("revolver")) then
+                local murderer = GetMurderer()
+                if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
+                    if IsInFOV(murderer.Character.HumanoidRootPart.Position) then
+                        mouse1click()
+                    end
+                end
+            end
+        end
+    end
 
+    -- Fixed Flying Mechanics (Proper AssemblyLinearVelocity + Camera Look Vector)
     if MiscConfig.Fly and hrp then
         local moveDir = Vector3.new(0, 0, 0)
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
@@ -979,6 +995,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- Gun ESP Logic running at reduced frequency to prevent lag spikes
     if ESPConfig.GunESP and frameCounter % 20 == 0 then
         local foundGunObj = searchForGun()
         if foundGunObj then
