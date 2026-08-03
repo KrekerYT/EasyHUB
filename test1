@@ -316,7 +316,6 @@ local function CreateSlider(parent, name, min, max, default, callback)
     end)
 end
 
--- Dropdown/Selector for Health and Color configs
 local function CreateDropdown(parent, name, options, callback)
     local DropFrame = Instance.new("Frame")
     DropFrame.Parent = parent
@@ -372,9 +371,13 @@ local ESPConfig = {
     Tracers = false, 
     Names = false, 
     Health = false, 
-    HealthMode = "Text", -- Text or Bar
+    HealthMode = "Text",
+    MurdererESP = false,
+    SheriffESP = false,
     ChamsColor = Color3.fromRGB(52, 152, 219),
-    TracersColor = Color3.fromRGB(255, 255, 255)
+    TracersColor = Color3.fromRGB(255, 255, 255),
+    MurderColor = Color3.fromRGB(231, 76, 60),
+    SheriffColor = Color3.fromRGB(52, 152, 219)
 }
 local MiscConfig = {NoCollision = false, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.7}
 
@@ -385,6 +388,10 @@ CreateToggle(ESPPage, "Tracers", function(state) ESPConfig.Tracers = state end)
 CreateToggle(ESPPage, "Names", function(state) ESPConfig.Names = state end)
 CreateToggle(ESPPage, "Health", function(state) ESPConfig.Health = state end)
 CreateDropdown(ESPPage, "Health Display", {"Text", "Bar"}, function(val) ESPConfig.HealthMode = val end)
+
+CreateCategoryLabel(ESPPage, "MM2 ROLES ESP")
+CreateToggle(ESPPage, "Murderer ESP", function(state) ESPConfig.MurdererESP = state end)
+CreateToggle(ESPPage, "Sheriff ESP", function(state) ESPConfig.SheriffESP = state end)
 
 CreateCategoryLabel(ESPPage, "COLORS")
 CreateDropdown(ESPPage, "Chams Color", {"Blue", "Red", "Green", "Purple", "Yellow"}, function(val)
@@ -401,6 +408,22 @@ CreateDropdown(ESPPage, "Tracers Color", {"White", "Red", "Green", "Blue", "Yell
     elseif val == "Green" then ESPConfig.TracersColor = Color3.fromRGB(46, 204, 113)
     elseif val == "Blue" then ESPConfig.TracersColor = Color3.fromRGB(52, 152, 219)
     elseif val == "Yellow" then ESPConfig.TracersColor = Color3.fromRGB(241, 196, 15) end
+end)
+
+CreateDropdown(ESPPage, "Murderer Color", {"Red", "Purple", "Yellow", "Green", "Blue"}, function(val)
+    if val == "Red" then ESPConfig.MurderColor = Color3.fromRGB(231, 76, 60)
+    elseif val == "Purple" then ESPConfig.MurderColor = Color3.fromRGB(155, 89, 182)
+    elseif val == "Yellow" then ESPConfig.MurderColor = Color3.fromRGB(241, 196, 15)
+    elseif val == "Green" then ESPConfig.MurderColor = Color3.fromRGB(46, 204, 113)
+    elseif val == "Blue" then ESPConfig.MurderColor = Color3.fromRGB(52, 152, 219) end
+end)
+
+CreateDropdown(ESPPage, "Sheriff Color", {"Blue", "Green", "Yellow", "Red", "Purple"}, function(val)
+    if val == "Blue" then ESPConfig.SheriffColor = Color3.fromRGB(52, 152, 219)
+    elseif val == "Green" then ESPConfig.SheriffColor = Color3.fromRGB(46, 204, 113)
+    elseif val == "Yellow" then ESPConfig.SheriffColor = Color3.fromRGB(241, 196, 15)
+    elseif val == "Red" then ESPConfig.SheriffColor = Color3.fromRGB(231, 76, 60)
+    elseif val == "Purple" then ESPConfig.SheriffColor = Color3.fromRGB(155, 89, 182) end
 end)
 
 -- MISC TAB
@@ -506,6 +529,30 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- Helper function to detect MM2 roles
+local function GetMM2Role(player)
+    local character = player.Character
+    if not character then return nil end
+    
+    for _, item in ipairs(player.Backpack:GetChildren()) do
+        if item.Name == "Knife" then
+            return "Murderer"
+        elseif item.Name == "Gun" or item.Name == "Revolver" then
+            return "Sheriff"
+        end
+    end
+    
+    for _, item in ipairs(character:GetChildren()) do
+        if item.Name == "Knife" then
+            return "Murderer"
+        elseif item.Name == "Gun" or item.Name == "Revolver" then
+            return "Sheriff"
+        end
+    end
+    
+    return "Innocent"
+end
+
 -- MAIN LOOP
 local tracersList = {}
 
@@ -541,6 +588,7 @@ RunService.RenderStepped:Connect(function()
             local pChar = player.Character
             local hrp = pChar.HumanoidRootPart
             local pHumanoid = pChar:FindFirstChildOfClass("Humanoid")
+            local role = GetMM2Role(player)
             
             -- Tracers Logic
             if ESPConfig.Tracers then
@@ -566,8 +614,22 @@ RunService.RenderStepped:Connect(function()
                 end
             end
             
-            -- Chams Logic
-            if ESPConfig.Chams then
+            -- Chams & Role ESP Logic
+            local activeChams = false
+            local chamsColorFinal = ESPConfig.ChamsColor
+
+            if ESPConfig.MurdererESP and role == "Murderer" then
+                activeChams = true
+                chamsColorFinal = ESPConfig.MurderColor
+            elseif ESPConfig.SheriffESP and role == "Sheriff" then
+                activeChams = true
+                chamsColorFinal = ESPConfig.SheriffColor
+            elseif ESPConfig.Chams then
+                activeChams = true
+                chamsColorFinal = ESPConfig.ChamsColor
+            end
+
+            if activeChams then
                 local highlight = pChar:FindFirstChild("EasyChams")
                 if not highlight then
                     highlight = Instance.new("Highlight")
@@ -576,7 +638,7 @@ RunService.RenderStepped:Connect(function()
                     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
                     highlight.Parent = pChar
                 end
-                highlight.FillColor = ESPConfig.ChamsColor
+                highlight.FillColor = chamsColorFinal
             else
                 if pChar:FindFirstChild("EasyChams") then
                     pChar.EasyChams:Destroy()
@@ -584,7 +646,7 @@ RunService.RenderStepped:Connect(function()
             end
 
             -- Names & Health Logic
-            if (ESPConfig.Names or ESPConfig.Health) then
+            if (ESPConfig.Names or ESPConfig.Health or (ESPConfig.MurdererESP and role == "Murderer") or (ESPConfig.SheriffESP and role == "Sheriff")) then
                 local head = pChar:FindFirstChild("Head") or hrp
                 local bg = pChar:FindFirstChild("EasyESPInfo")
                 if not bg and head then
@@ -598,7 +660,7 @@ RunService.RenderStepped:Connect(function()
 
                     local txt = Instance.new("TextLabel")
                     txt.Name = "InfoText"
-                    txt.Size = UDim2.new(1, 0, 0, 25)
+                    txt.Size = UDim2.new(1, 0, 0, 35)
                     txt.BackgroundTransparency = 1
                     txt.Font = Enum.Font.GothamBold
                     txt.TextSize = 13
@@ -609,7 +671,7 @@ RunService.RenderStepped:Connect(function()
                     local healthBarBg = Instance.new("Frame")
                     healthBarBg.Name = "HealthBarBg"
                     healthBarBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                    healthBarBg.Position = UDim2.new(0.1, 0, 0, 28)
+                    healthBarBg.Position = UDim2.new(0.1, 0, 0, 38)
                     healthBarBg.Size = UDim2.new(0.8, 0, 0, 6)
                     healthBarBg.Visible = false
                     healthBarBg.Parent = bg
@@ -633,6 +695,8 @@ RunService.RenderStepped:Connect(function()
                 if bg then
                     local textStr = ""
                     if ESPConfig.Names then textStr = textStr .. player.Name .. "\n" end
+                    if ESPConfig.MurdererESP and role == "Murderer" then textStr = textStr .. "[MURDERER]\n" end
+                    if ESPConfig.SheriffESP and role == "Sheriff" then textStr = textStr .. "[SHERIFF]\n" end
                     if ESPConfig.Health and ESPConfig.HealthMode == "Text" and pHumanoid then 
                         textStr = textStr .. "HP: " .. math.floor(pHumanoid.Health) 
                     end
