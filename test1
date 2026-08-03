@@ -259,7 +259,7 @@ local function CreateToggle(parent, name, idName, callback)
     BindButton.Text = "BIND"
     BindButton.TextColor3 = Color3.fromRGB(180, 180, 190)
     BindButton.TextSize = 11
-    BindButton.ZIndex = 6
+    BindButton.ZIndex = 7
     
     local BindCorner = Instance.new("UICorner")
     BindCorner.CornerRadius = UDim.new(0, 6)
@@ -299,12 +299,7 @@ local function CreateToggle(parent, name, idName, callback)
         listeningForKey = {btn = BindButton, id = dataRef}
     end)
 
-    ToggleButton.MouseButton1Click:Connect(function(x, y)
-        -- prevent triggering if clicking bind button area
-        if BindButton.AbsolutePosition.X <= UserInputService:GetMouseLocation().X then
-            return
-        end
-        
+    ToggleButton.MouseButton1Click:Connect(function()
         dataRef.state = not dataRef.state
         callback(dataRef.state)
         
@@ -441,7 +436,7 @@ local function CreateDropdown(parent, name, options, defaultVal, callback)
     end)
 end
 
--- CONFIGS (With defaults: Green Chams, White Tracers, Red Murderer, Blue Sheriff, and 1.0 Bhop Speed)
+-- CONFIGS
 local ESPConfig = {
     Chams = false, 
     Tracers = false, 
@@ -609,26 +604,40 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Helper function to instantly detect MM2 roles via inventory items / weapon data / stats containers
+-- Robust MM2 Role Detection using Backpack, Character, PlayerGui, and game Constants/Remotes
 local function GetMM2Role(player)
     local character = player.Character
     
-    -- Check backpack and character tools
+    -- Check backpack and character tools/items
     local containers = {player:FindFirstChild("Backpack"), character}
     for _, container in ipairs(containers) do
         if container then
             for _, item in ipairs(container:GetChildren()) do
                 local itemName = item.Name:lower()
-                if itemName:find("knife") or itemName:find("murder") then
+                -- Filter out common non-role items or generic names if necessary, but check knife/gun identifiers
+                if itemName == "knife" or itemName:find("knife") then
                     return "Murderer"
-                elseif itemName:find("gun") or itemName:find("revolver") or itemName:find("sheriff") then
+                elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
                     return "Sheriff"
                 end
             end
         end
     end
 
-    -- Check leaderstats or player attributes for MM2 role data if tools aren't equipped/loaded yet
+    -- Check PlayerGui for weapon icons/gui indicators (common in MM2)
+    local pGui = player:FindFirstChild("PlayerGui")
+    if pGui then
+        for _, gui in ipairs(pGui:GetChildren()) do
+            local gName = gui.Name:lower()
+            if gName:find("gun") or gName:find("revolver") then
+                return "Sheriff"
+            elseif gName:find("knife") or gName:find("murder") then
+                return "Murderer"
+            end
+        end
+    end
+
+    -- Check leaderstats or player attributes for MM2 role data
     local stats = player:FindFirstChild("leaderstats")
     if stats then
         for _, stat in ipairs(stats:GetChildren()) do
@@ -746,7 +755,7 @@ RunService.RenderStepped:Connect(function()
                     tracersList[player] = line
                 end
                 
-                -- Dynamic Tracer Color determination
+                -- Dynamic Tracer Color determination (Fixed bug where White tracers defaulted incorrectly)
                 local tracerColorFinal = ESPConfig.TracersColor
                 if ESPConfig.TracersColor == Color3.fromRGB(255, 255, 255) then
                     if role == "Murderer" then
