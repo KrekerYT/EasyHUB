@@ -105,7 +105,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v2.7 Professional"
+HubSubTitle.Text = "v2.8 Professional"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -493,7 +493,7 @@ local ESPConfig = {
     MurderColor = Color3.fromRGB(231, 76, 60),
     SheriffColor = Color3.fromRGB(52, 152, 219)
 }
-local SkinConfig = {Headless = false} -- Корблокс полностью удален по вашему запросу
+local SkinConfig = {Headless = false}
 local AimConfig = {SilentAim = false, AutoShoot = false}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
 
@@ -538,7 +538,6 @@ local function searchForGun()
     return nil
 end
 
--- Функция поиска Murderer для Silent Aim и Auto Shoot (работает, только если вы Шериф)
 local function GetNearestMurderer()
     if GetMM2Role(LocalPlayer) ~= "Sheriff" then return nil end
     
@@ -567,7 +566,7 @@ local function GetNearestMurderer()
 end
 
 -- BUILD TABS
-CreateCategoryLabel(ESPPage, "VISUALS")
+CreateCategoryLabel(ESPPage, "VISUALсы")
 CreateToggle(ESPPage, "Chams", "Chams", function(state) ESPConfig.Chams = state end)
 CreateToggle(ESPPage, "Tracers", "Tracers", function(state) ESPConfig.Tracers = state end)
 CreateToggle(ESPPage, "Names", "Names", function(state) ESPConfig.Names = state end)
@@ -691,12 +690,12 @@ CreateButton(TeleportPage, "Teleport To Sheriff", function()
     end
 end)
 
--- AIMBOT TAB (Sheriff Features: Silent Aim & Auto Shoot)
-CreateCategoryLabel(AimPage, "SHERIFF COMBAT")
-CreateToggle(AimPage, "Silent Aim (Redirect Ray)", "SilentAim", function(state) AimConfig.SilentAim = state end)
-CreateToggle(AimPage, "Auto Shoot (Auto Fire)", "AutoShoot", function(state) AimConfig.AutoShoot = state end)
+-- AIMBOT TAB (Sheriff)
+CreateCategoryLabel(AimPage, "SHERIFF AIM")
+CreateToggle(AimPage, "Silent Aimbot", "SilentAim", function(state) AimConfig.SilentAim = state end)
+CreateToggle(AimPage, "Auto Shoot", "AutoShoot", function(state) AimConfig.AutoShoot = state end)
 
--- Перехват лучей / выстрелов для Silent Aimbot (работает с большинством пушек MM2)
+-- Перехват выстрелов (Silent Aim)
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
@@ -706,7 +705,6 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
         if method == "FireServer" or method == "InvokeServer" then
             local targetMurderer = GetNearestMurderer()
             if targetMurderer and targetMurderer:FindFirstChild("HumanoidRootPart") then
-                -- Подменяем координаты направления выстрела на цель (Мардера)
                 for i, v in ipairs(args) do
                     if typeof(v) == "Vector3" then
                         args[i] = targetMurderer.HumanoidRootPart.Position
@@ -721,7 +719,7 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, unpack(args))
 end)
 
--- SKINCHANGER TAB (Корблокс успешно убран, остался Headless)
+-- SKINCHANGER TAB (Только Headless, Корблокс удален)
 CreateCategoryLabel(SkinchangerPage, "VISUAL SKINS")
 CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
     SkinConfig.Headless = state
@@ -931,7 +929,7 @@ RunService.RenderStepped:Connect(function()
         humanoid.WalkSpeed = baseSpeed * currentMultiplier
     end
 
-    -- Автоматический выстрел (Auto Shoot) для шерифа при виде мардера
+    -- Автошут для шерифа (автоматическая активация оружия при виде убийцы)
     if AimConfig.AutoShoot and GetMM2Role(LocalPlayer) == "Sheriff" and frameCounter % 5 == 0 then
         local murderer = GetNearestMurderer()
         if murderer and murderer:FindFirstChild("HumanoidRootPart") then
