@@ -299,6 +299,7 @@ local function CreateToggle(parent, name, idName, callback)
         listeningForKey = {btn = BindButton, id = dataRef}
     end)
 
+    -- Full block click toggle action instead of partial restrictive frame collision
     ToggleButton.MouseButton1Click:Connect(function()
         dataRef.state = not dataRef.state
         callback(dataRef.state)
@@ -604,56 +605,25 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Robust MM2 Role Detection using Backpack, Character, PlayerGui, and game Constants/Remotes
+-- Accurate MM2 Role Detection (Fixed false positive detection loop)
 local function GetMM2Role(player)
     local character = player.Character
+    if not character then return "Innocent" end
     
-    -- Check backpack and character tools/items
+    -- Check backpack and character tools/items specifically
     local containers = {player:FindFirstChild("Backpack"), character}
     for _, container in ipairs(containers) do
         if container then
             for _, item in ipairs(container:GetChildren()) do
-                local itemName = item.Name:lower()
-                -- Filter out common non-role items or generic names if necessary, but check knife/gun identifiers
-                if itemName == "knife" or itemName:find("knife") then
-                    return "Murderer"
-                elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
-                    return "Sheriff"
+                if item:IsA("Tool") then
+                    local itemName = item.Name:lower()
+                    if itemName == "knife" or itemName:find("knife") then
+                        return "Murderer"
+                    elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
+                        return "Sheriff"
+                    end
                 end
             end
-        end
-    end
-
-    -- Check PlayerGui for weapon icons/gui indicators (common in MM2)
-    local pGui = player:FindFirstChild("PlayerGui")
-    if pGui then
-        for _, gui in ipairs(pGui:GetChildren()) do
-            local gName = gui.Name:lower()
-            if gName:find("gun") or gName:find("revolver") then
-                return "Sheriff"
-            elseif gName:find("knife") or gName:find("murder") then
-                return "Murderer"
-            end
-        end
-    end
-
-    -- Check leaderstats or player attributes for MM2 role data
-    local stats = player:FindFirstChild("leaderstats")
-    if stats then
-        for _, stat in ipairs(stats:GetChildren()) do
-            local val = tostring(stat.Value):lower()
-            if val:find("murderer") then return "Murderer"
-            elseif val:find("sheriff") then return "Sheriff"
-            elseif val:find("innocent") then return "Innocent" end
-        end
-    end
-    
-    -- Check specific MM2 data folders if available in ReplicatedStorage or player
-    for _, child in ipairs(player:GetChildren()) do
-        if child.Name:lower():find("role") or child.Name:lower():find("data") then
-            local val = tostring(child.Value):lower()
-            if val:find("murderer") then return "Murderer"
-            elseif val:find("sheriff") then return "Sheriff" end
         end
     end
 
@@ -755,9 +725,11 @@ RunService.RenderStepped:Connect(function()
                     tracersList[player] = line
                 end
                 
-                -- Dynamic Tracer Color determination (Fixed bug where White tracers defaulted incorrectly)
+                -- Fixed Tracer Color Logic: White tracer color setting works properly without hardcoded role overriding unless configured
                 local tracerColorFinal = ESPConfig.TracersColor
                 if ESPConfig.TracersColor == Color3.fromRGB(255, 255, 255) then
+                    tracerColorFinal = Color3.fromRGB(255, 255, 255)
+                else
                     if role == "Murderer" then
                         tracerColorFinal = ESPConfig.MurderColor
                     elseif role == "Sheriff" then
