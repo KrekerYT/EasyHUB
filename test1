@@ -1,32 +1,25 @@
 -- Services
 local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Camera = workspace.CurrentCamera
 
 -- Удаляем старый интерфейс, если он уже есть
-if CoreGui:FindFirstChild("EasyHUB") then
-    CoreGui["EasyHUB"]:Destroy()
-end
-if LocalPlayer.PlayerGui:FindFirstChild("EasyHUB") then
-    LocalPlayer.PlayerGui["EasyHUB"]:Destroy()
+if PlayerGui:FindFirstChild("EasyHUB") then
+    PlayerGui["EasyHUB"]:Destroy()
 end
 
--- Создание главного контейнера с защищенным родителем
+-- Создание главного контейнера
 local EasyHUB = Instance.new("ScreenGui")
 EasyHUB.Name = "EasyHUB"
-local success = pcall(function()
-    EasyHUB.Parent = CoreGui
-end)
-if not success then
-    EasyHUB.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
+EasyHUB.Parent = PlayerGui
 EasyHUB.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 EasyHUB.IgnoreGuiInset = true
+EasyHUB.ResetOnSpawn = false
 
 local MainScale = Instance.new("UIScale")
 MainScale.Scale = 1
@@ -43,6 +36,7 @@ OpenButton.Font = Enum.Font.GothamBold
 OpenButton.Text = "EasyMenu"
 OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 OpenButton.TextSize = 14
+OpenButton.ZIndex = 10
 
 local OpenButtonCorner = Instance.new("UICorner")
 OpenButtonCorner.CornerRadius = UDim.new(0, 8)
@@ -61,6 +55,7 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 MainFrame.Position = UDim2.new(0.5, -325, 0.5, -185)
 MainFrame.Size = UDim2.new(0, 650, 0, 370)
 MainFrame.Visible = false
+MainFrame.ZIndex = 5
 
 local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 12)
@@ -77,6 +72,7 @@ TopBar.Name = "TopBar"
 TopBar.Parent = MainFrame
 TopBar.BackgroundTransparency = 1
 TopBar.Size = UDim2.new(1, 0, 0, 50)
+TopBar.ZIndex = 6
 
 local HubTitle = Instance.new("TextLabel")
 HubTitle.Parent = TopBar
@@ -88,6 +84,7 @@ HubTitle.Text = "EasyHUB"
 HubTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HubTitle.TextSize = 18
 HubTitle.TextXAlignment = Enum.TextXAlignment.Left
+HubTitle.ZIndex = 6
 
 local HubSubTitle = Instance.new("TextLabel")
 HubSubTitle.Parent = TopBar
@@ -99,6 +96,7 @@ HubSubTitle.Text = "Roblox"
 HubSubTitle.TextColor3 = Color3.fromRGB(130, 130, 140)
 HubSubTitle.TextSize = 14
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
+HubSubTitle.ZIndex = 6
 
 -- Кнопка закрытия (крестик)
 local CloseButton = Instance.new("TextButton")
@@ -110,6 +108,7 @@ CloseButton.Font = Enum.Font.GothamBold
 CloseButton.Text = "✕"
 CloseButton.TextColor3 = Color3.fromRGB(180, 180, 190)
 CloseButton.TextSize = 14
+CloseButton.ZIndex = 7
 
 local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 6)
@@ -126,6 +125,7 @@ Sidebar.Size = UDim2.new(0, 160, 1, -50)
 Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
 Sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
 Sidebar.ScrollBarThickness = 2
+Sidebar.ZIndex = 6
 
 local SidebarLayout = Instance.new("UIListLayout")
 SidebarLayout.Parent = Sidebar
@@ -138,6 +138,7 @@ Container.Parent = MainFrame
 Container.BackgroundTransparency = 1
 Container.Position = UDim2.new(0, 180, 0, 65)
 Container.Size = UDim2.new(1, -195, 1, -75)
+Container.ZIndex = 6
 
 -- Функция создания страниц
 local function CreatePage()
@@ -150,6 +151,7 @@ local function CreatePage()
     page.AutomaticCanvasSize = Enum.AutomaticSize.Y
     page.ScrollBarThickness = 2
     page.Visible = false
+    page.ZIndex = 6
 
     local layout = Instance.new("UIListLayout")
     layout.Parent = page
@@ -164,7 +166,7 @@ local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
 ESPPage.Visible = true
 
--- Функция создания заголовков категорий внутри страниц
+-- Функция создания заголовков категорий
 local function CreateCategoryLabel(parent, text)
     local lbl = Instance.new("TextLabel")
     lbl.Parent = parent
@@ -175,6 +177,7 @@ local function CreateCategoryLabel(parent, text)
     lbl.TextColor3 = Color3.fromRGB(150, 150, 160)
     lbl.TextSize = 13
     lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 6
 end
 
 -- Функция создания тогглов
@@ -186,6 +189,7 @@ local function CreateToggle(parent, name, callback)
     ToggleButton.AutoButtonColor = false
     ToggleButton.Font = Enum.Font.Gotham
     ToggleButton.Text = ""
+    ToggleButton.ZIndex = 6
     
     local Corner = Instance.new("UICorner")
     Corner.CornerRadius = UDim.new(0, 8)
@@ -201,12 +205,14 @@ local function CreateToggle(parent, name, callback)
     Label.TextColor3 = Color3.fromRGB(220, 220, 230)
     Label.TextSize = 14
     Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.ZIndex = 6
     
     local Switch = Instance.new("Frame")
     Switch.Parent = ToggleButton
     Switch.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     Switch.Position = UDim2.new(1, -50, 0.5, -10)
     Switch.Size = UDim2.new(0, 40, 0, 20)
+    Switch.ZIndex = 6
     
     local SwitchCorner = Instance.new("UICorner")
     SwitchCorner.CornerRadius = UDim.new(1, 0)
@@ -217,6 +223,7 @@ local function CreateToggle(parent, name, callback)
     Circle.BackgroundColor3 = Color3.fromRGB(200, 200, 210)
     Circle.Position = UDim2.new(0, 2, 0.5, -8)
     Circle.Size = UDim2.new(0, 16, 0, 16)
+    Circle.ZIndex = 6
     
     local CircleCorner = Instance.new("UICorner")
     CircleCorner.CornerRadius = UDim.new(1, 0)
@@ -241,6 +248,7 @@ local function CreateSlider(parent, name, min, max, default, callback)
     SliderFrame.Parent = parent
     SliderFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
     SliderFrame.Size = UDim2.new(1, -10, 0, 50)
+    SliderFrame.ZIndex = 6
     
     local Corner = Instance.new("UICorner")
     Corner.CornerRadius = UDim.new(0, 8)
@@ -256,12 +264,14 @@ local function CreateSlider(parent, name, min, max, default, callback)
     Label.TextColor3 = Color3.fromRGB(220, 220, 230)
     Label.TextSize = 14
     Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.ZIndex = 6
     
     local SliderBar = Instance.new("Frame")
     SliderBar.Parent = SliderFrame
     SliderBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     SliderBar.Position = UDim2.new(0, 15, 0, 32)
     SliderBar.Size = UDim2.new(1, -30, 0, 6)
+    SliderBar.ZIndex = 6
     
     local BarCorner = Instance.new("UICorner")
     BarCorner.CornerRadius = UDim.new(1, 0)
@@ -270,9 +280,9 @@ local function CreateSlider(parent, name, min, max, default, callback)
     local Fill = Instance.new("Frame")
     Fill.Parent = SliderBar
     Fill.BackgroundColor3 = Color3.fromRGB(52, 152, 219)
-    -- Подсчет начального размера заполнения для дробных или целых чисел
     local fillPercent = math.clamp((default - min) / (max - min), 0, 1)
     Fill.Size = UDim2.new(fillPercent, 0, 1, 0)
+    Fill.ZIndex = 6
     
     local FillCorner = Instance.new("UICorner")
     FillCorner.CornerRadius = UDim.new(1, 0)
@@ -294,7 +304,6 @@ local function CreateSlider(parent, name, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input)
         if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local pos = math.clamp((input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1)
-            -- Вычисление значения с поддержкой десятых (до 1 знака после запятой)
             local val = math.floor((min + ((max - min) * pos)) * 10 + 0.5) / 10
             Fill.Size = UDim2.new(pos, 0, 1, 0)
             Label.Text = name .. ": " .. tostring(val)
@@ -308,15 +317,12 @@ local ESPConfig = {Chams = false, Tracers = false, Names = false, Health = false
 local MiscConfig = {NoCollision = false, Bhop = false, SpeedMultiplier = 1}
 
 -- НАПОЛНЕНИЕ ВКЛАДОК
-
--- Элементы ESP
 CreateCategoryLabel(ESPPage, "VISUALS")
 CreateToggle(ESPPage, "Chams (Подсветка)", function(state) ESPConfig.Chams = state end)
 CreateToggle(ESPPage, "Tracers (Линии)", function(state) ESPConfig.Tracers = state end)
 CreateToggle(ESPPage, "Names (Ники)", function(state) ESPConfig.Names = state end)
 CreateToggle(ESPPage, "Health (Здоровье)", function(state) ESPConfig.Health = state end)
 
--- Элементы MISC
 CreateCategoryLabel(MiscPage, "WORLD")
 CreateToggle(MiscPage, "No Player Collision (Сквозь игроков)", function(state) 
     MiscConfig.NoCollision = state 
@@ -331,7 +337,6 @@ CreateSlider(MiscPage, "Speed (Скорость)", 1, 3, 1, function(val)
     MiscConfig.SpeedMultiplier = val
 end)
 
--- Элементы SETTINGS
 CreateCategoryLabel(SettingsPage, "INTERFACE")
 CreateSlider(SettingsPage, "UI Scale (Размер меню)", 70, 130, 100, function(val)
     MainScale.Scale = val / 100
@@ -345,7 +350,7 @@ CreateToggle(SettingsPage, "Russian Language (Русский)", function(state)
     end
 end)
 
--- Функция создания кнопок в боковом меню
+-- Создание кнопок в боковом меню
 local function CreateTabButton(name, icon, targetPage)
     local TabBtn = Instance.new("TextButton")
     TabBtn.Parent = Sidebar
@@ -357,6 +362,7 @@ local function CreateTabButton(name, icon, targetPage)
     TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     TabBtn.TextSize = 14
     TabBtn.TextXAlignment = Enum.TextXAlignment.Left
+    TabBtn.ZIndex = 6
 
     TabBtn.MouseButton1Click:Connect(function()
         ESPPage.Visible = false
@@ -383,7 +389,7 @@ CloseButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
 end)
 
--- Перетаскивание окна (Draggable)
+-- Перетаскивание окна
 local dragging, dragInput, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -412,19 +418,17 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ГЛАВНЫЙ ЦИКЛ РАБОТЫ (ESP, No Collision, Speed & BHOP)
+-- ГЛАВНЫЙ ЦИКЛ РАБОТЫ
 local tracersList = {}
 
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 
-    -- Логика движения (Speed & BHOP)
     if humanoid then
-        local baseSpeed = 16 -- стандартная скорость в Roblox
+        local baseSpeed = 16
         local currentMultiplier = MiscConfig.SpeedMultiplier
         
-        -- Проверка BHOP (если включен и персонаж в воздухе / прыгает)
         if MiscConfig.Bhop and humanoid:GetState() == Enum.HumanoidStateType.Freefall then
             currentMultiplier = math.max(currentMultiplier, 1.7)
         end
@@ -432,7 +436,6 @@ RunService.RenderStepped:Connect(function()
         humanoid.WalkSpeed = baseSpeed * currentMultiplier
     end
 
-    -- No Collision логика
     if MiscConfig.NoCollision then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
@@ -445,14 +448,12 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- ESP логика
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local pChar = player.Character
             local hrp = pChar.HumanoidRootPart
             local pHumanoid = pChar:FindFirstChildOfClass("Humanoid")
             
-            -- Tracers
             if ESPConfig.Tracers then
                 if not tracersList[player] then
                     local line = Drawing.new("Line")
@@ -476,7 +477,6 @@ RunService.RenderStepped:Connect(function()
                 end
             end
             
-            -- Chams (Highlight)
             if ESPConfig.Chams then
                 if not pChar:FindFirstChild("EasyChams") then
                     local highlight = Instance.new("Highlight")
@@ -492,7 +492,6 @@ RunService.RenderStepped:Connect(function()
                 end
             end
 
-            -- Names & Health (BillboardGui)
             if (ESPConfig.Names or ESPConfig.Health) then
                 local head = pChar:FindFirstChild("Head") or hrp
                 if not pChar:FindFirstChild("EasyESPInfo") and head then
