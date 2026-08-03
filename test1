@@ -316,7 +316,7 @@ local function CreateSlider(parent, name, min, max, default, callback)
     end)
 end
 
-local function CreateDropdown(parent, name, options, callback)
+local function CreateDropdown(parent, name, options, defaultVal, callback)
     local DropFrame = Instance.new("Frame")
     DropFrame.Parent = parent
     DropFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
@@ -340,6 +340,13 @@ local function CreateDropdown(parent, name, options, callback)
     Label.ZIndex = 6
     
     local CurrentIndex = 1
+    for i, opt in ipairs(options) do
+        if opt == defaultVal then
+            CurrentIndex = i
+            break
+        end
+    end
+
     local SelectButton = Instance.new("TextButton")
     SelectButton.Parent = DropFrame
     SelectButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
@@ -365,7 +372,7 @@ local function CreateDropdown(parent, name, options, callback)
     end)
 end
 
--- CONFIGS
+-- CONFIGS (With requested defaults: Green Chams, White Tracers, Red Murderer, Blue Sheriff)
 local ESPConfig = {
     Chams = false, 
     Tracers = false, 
@@ -374,11 +381,11 @@ local ESPConfig = {
     HealthMode = "Text",
     MurdererESP = false,
     SheriffESP = false,
-    ChamsColor = Color3.fromRGB(52, 152, 219),
-    TracersColor = Color3.fromRGB(255, 255, 255),
-    InnocentTracerColor = Color3.fromRGB(46, 204, 113),
-    MurderColor = Color3.fromRGB(231, 76, 60),
-    SheriffColor = Color3.fromRGB(52, 152, 219)
+    ChamsColor = Color3.fromRGB(46, 204, 113),       -- Green
+    TracersColor = Color3.fromRGB(255, 255, 255),    -- White
+    InnocentTracerColor = Color3.fromRGB(46, 204, 113), -- Green
+    MurderColor = Color3.fromRGB(231, 76, 60),       -- Red
+    SheriffColor = Color3.fromRGB(52, 152, 219)      -- Blue
 }
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.7}
 
@@ -388,14 +395,14 @@ CreateToggle(ESPPage, "Chams", function(state) ESPConfig.Chams = state end)
 CreateToggle(ESPPage, "Tracers", function(state) ESPConfig.Tracers = state end)
 CreateToggle(ESPPage, "Names", function(state) ESPConfig.Names = state end)
 CreateToggle(ESPPage, "Health", function(state) ESPConfig.Health = state end)
-CreateDropdown(ESPPage, "Health Display", {"Text", "Bar"}, function(val) ESPConfig.HealthMode = val end)
+CreateDropdown(ESPPage, "Health Display", {"Text", "Bar"}, "Text", function(val) ESPConfig.HealthMode = val end)
 
 CreateCategoryLabel(ESPPage, "MM2 ROLES ESP")
 CreateToggle(ESPPage, "Murderer ESP", function(state) ESPConfig.MurdererESP = state end)
 CreateToggle(ESPPage, "Sheriff ESP", function(state) ESPConfig.SheriffESP = state end)
 
 CreateCategoryLabel(ESPPage, "COLORS")
-CreateDropdown(ESPPage, "Chams Color", {"Blue", "Red", "Green", "Purple", "Yellow"}, function(val)
+CreateDropdown(ESPPage, "Chams Color", {"Green", "Blue", "Red", "Purple", "Yellow"}, "Green", function(val)
     if val == "Blue" then ESPConfig.ChamsColor = Color3.fromRGB(52, 152, 219)
     elseif val == "Red" then ESPConfig.ChamsColor = Color3.fromRGB(231, 76, 60)
     elseif val == "Green" then ESPConfig.ChamsColor = Color3.fromRGB(46, 204, 113)
@@ -403,7 +410,7 @@ CreateDropdown(ESPPage, "Chams Color", {"Blue", "Red", "Green", "Purple", "Yello
     elseif val == "Yellow" then ESPConfig.ChamsColor = Color3.fromRGB(241, 196, 15) end
 end)
 
-CreateDropdown(ESPPage, "Tracers Color", {"White", "Red", "Green", "Blue", "Yellow"}, function(val)
+CreateDropdown(ESPPage, "Tracers Color", {"White", "Red", "Green", "Blue", "Yellow"}, "White", function(val)
     if val == "White" then ESPConfig.TracersColor = Color3.fromRGB(255, 255, 255)
     elseif val == "Red" then ESPConfig.TracersColor = Color3.fromRGB(231, 76, 60)
     elseif val == "Green" then ESPConfig.TracersColor = Color3.fromRGB(46, 204, 113)
@@ -411,7 +418,7 @@ CreateDropdown(ESPPage, "Tracers Color", {"White", "Red", "Green", "Blue", "Yell
     elseif val == "Yellow" then ESPConfig.TracersColor = Color3.fromRGB(241, 196, 15) end
 end)
 
-CreateDropdown(ESPPage, "Murderer Color", {"Red", "Purple", "Yellow", "Green", "Blue"}, function(val)
+CreateDropdown(ESPPage, "Murderer Color", {"Red", "Purple", "Yellow", "Green", "Blue"}, "Red", function(val)
     if val == "Red" then ESPConfig.MurderColor = Color3.fromRGB(231, 76, 60)
     elseif val == "Purple" then ESPConfig.MurderColor = Color3.fromRGB(155, 89, 182)
     elseif val == "Yellow" then ESPConfig.MurderColor = Color3.fromRGB(241, 196, 15)
@@ -419,7 +426,7 @@ CreateDropdown(ESPPage, "Murderer Color", {"Red", "Purple", "Yellow", "Green", "
     elseif val == "Blue" then ESPConfig.MurderColor = Color3.fromRGB(52, 152, 219) end
 end)
 
-CreateDropdown(ESPPage, "Sheriff Color", {"Blue", "Green", "Yellow", "Red", "Purple"}, function(val)
+CreateDropdown(ESPPage, "Sheriff Color", {"Blue", "Green", "Yellow", "Red", "Purple"}, "Blue", function(val)
     if val == "Blue" then ESPConfig.SheriffColor = Color3.fromRGB(52, 152, 219)
     elseif val == "Green" then ESPConfig.SheriffColor = Color3.fromRGB(46, 204, 113)
     elseif val == "Yellow" then ESPConfig.SheriffColor = Color3.fromRGB(241, 196, 15)
@@ -430,7 +437,7 @@ end)
 -- MISC TAB
 CreateCategoryLabel(MiscPage, "WORLD")
 CreateToggle(MiscPage, "No Player Collision", function(state) MiscConfig.NoCollision = state end)
-CreateToggle(MiscPage, "NoClip Wall", function(state) MiscConfig.NoClipWall = state end)
+CreateToggle(MiscPage, "NoClipWall", function(state) MiscConfig.NoClipWall = state end)
 
 CreateCategoryLabel(MiscPage, "MOVEMENT")
 CreateToggle(MiscPage, "Fly", function(state) MiscConfig.Fly = state end)
@@ -445,7 +452,7 @@ CreateSlider(SettingsPage, "UI Scale", 70, 130, 100, function(val)
     MainScale.Scale = val / 100
 end)
 
-CreateDropdown(SettingsPage, "Menu Theme", {"Default", "Dark", "Crimson", "Emerald"}, function(val)
+CreateDropdown(SettingsPage, "Menu Theme", {"Default", "Dark", "Crimson", "Emerald"}, "Default", function(val)
     if val == "Default" then
         ThemeConfig.Background = Color3.fromRGB(18, 18, 22)
         ThemeConfig.Sidebar = Color3.fromRGB(14, 14, 18)
@@ -781,7 +788,7 @@ RunService.RenderStepped:Connect(function()
                 end
             else
                 if pChar:FindFirstChild("EasyESPInfo") then
-                    pChar.EasyESPInfo:Destroy()
+                    pChar:FindFirstChild("EasyESPInfo"):Destroy()
                 end
             end
         end
