@@ -171,6 +171,7 @@ end
 
 local ESPPage = CreatePage()
 local TeleportPage = CreatePage()
+local SkinchangerPage = CreatePage()
 local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
 ESPPage.Visible = true
@@ -473,18 +474,25 @@ local ESPConfig = {
     MurderColor = Color3.fromRGB(231, 76, 60),
     SheriffColor = Color3.fromRGB(52, 152, 219)
 }
+local SkinConfig = {Corblox = false, Headless = false}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
 
--- GUN SEARCH HELPER
+-- GUN SEARCH HELPER (Optimized caching)
+local cachedGun = nil
 local function searchForGun(parent)
+    if cachedGun and cachedGun.Parent then
+        return cachedGun
+    end
     for _, obj in ipairs(parent:GetChildren()) do
         if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
+            cachedGun = obj
             return obj
         elseif obj:IsA("Model") or obj:IsA("Folder") then
             local found = searchForGun(obj)
             if found then return found end
         end
     end
+    cachedGun = nil
     return nil
 end
 
@@ -499,7 +507,18 @@ CreateDropdown(ESPPage, "Health Display", {"Text", "Bar"}, "Text", function(val)
 CreateCategoryLabel(ESPPage, "MM2 ROLES ESP")
 CreateToggle(ESPPage, "Murderer ESP", "MurdererESP", function(state) ESPConfig.MurdererESP = state end)
 CreateToggle(ESPPage, "Sheriff ESP", "SheriffESP", function(state) ESPConfig.SheriffESP = state end)
-CreateToggle(ESPPage, "Sheriff Gun ESP", "GunESP", function(state) ESPConfig.GunESP = state end)
+CreateToggle(ESPPage, "Sheriff Gun ESP", "GunESP", function(state) 
+    ESPConfig.GunESP = state 
+    if not state then
+        cachedGun = nil
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") or obj:IsA("Folder") then
+                local gunEsp = obj:FindFirstChild("EasyGunESP", true)
+                if gunEsp then gunEsp:Destroy() end
+            end
+        end
+    end
+end)
 
 CreateCategoryLabel(ESPPage, "GUN ACTIONS")
 CreateButton(ESPPage, "Loot Gun", function()
@@ -627,6 +646,75 @@ CreateButton(TeleportPage, "Teleport To Sheriff", function()
     end
 end)
 
+-- SKINCHANGER TAB
+CreateCategoryLabel(SkinchangerPage, "VISUAL SKINS")
+CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
+    SkinConfig.Headless = state
+    local char = LocalPlayer.Character
+    if char then
+        local head = char:FindFirstChild("Head")
+        if head then
+            head.Transparency = state and 1 or 0
+            local face = head:FindFirstChild("face")
+            if face then face.Transparency = state and 1 or 0 end
+        end
+    end
+end)
+
+CreateToggle(SkinchangerPage, "Corblox Legs", "Corblox", function(state)
+    SkinConfig.Corblox = state
+    local char = LocalPlayer.Character
+    if char then
+        local legNames = {"LeftLowerLeg", "LeftUpperLeg", "RightLowerLeg", "RightUpperLeg", "LeftFoot", "RightFoot"}
+        for _, name in ipairs(legNames) do
+            local part = char:FindFirstChild(name)
+            if part then
+                part.Transparency = state and 1 or 0
+                local mesh = part:FindFirstChildOfClass("SpecialMesh") or part:FindFirstChildOfClass("BlockMesh")
+                if state then
+                    if not part:FindFirstChild("CorbloxHandle") then
+                        local handleClone = Instance.new("Part")
+                        handleClone.Name = "CorbloxHandle"
+                        handleClone.Size = Vector3.new(1, 1, 1)
+                        handleClone.Transparency = 1
+                        handleClone.Parent = part
+                    end
+                else
+                    local handleClone = part:FindFirstChild("CorbloxHandle")
+                    if handleClone then handleClone:Destroy() end
+                end
+            end
+        end
+    end
+end)
+
+-- Reapply skinchanger on respawn
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    task.wait(1)
+    if SkinConfig.Headless then
+        local head = newChar:FindFirstChild("Head")
+        if head then
+            head.Transparency = 1
+            local face = head:FindFirstChild("face")
+            if face then face.Transparency = 1 end
+        end
+    end
+    if SkinConfig.Corblox then
+        local legNames = {"LeftLowerLeg", "LeftUpperLeg", "RightLowerLeg", "RightUpperLeg", "LeftFoot", "RightFoot"}
+        for _, name in ipairs(legNames) do
+            local part = newChar:FindFirstChild(name)
+            if part then
+                part.Transparency = 1
+                local handleClone = Instance.new("Part")
+                handleClone.Name = "CorbloxHandle"
+                handleClone.Size = Vector3.new(1, 1, 1)
+                handleClone.Transparency = 1
+                handleClone.Parent = part
+            end
+        end
+    end
+end)
+
 -- MISC TAB
 CreateCategoryLabel(MiscPage, "WORLD")
 CreateToggle(MiscPage, "No Player Collision", "NoCollision", function(state) MiscConfig.NoCollision = state end)
@@ -684,6 +772,7 @@ local function CreateTabButton(name, icon, targetPage)
     TabBtn.MouseButton1Click:Connect(function()
         ESPPage.Visible = false
         TeleportPage.Visible = false
+        SkinchangerPage.Visible = false
         MiscPage.Visible = false
         SettingsPage.Visible = false
         targetPage.Visible = true
@@ -692,6 +781,7 @@ end
 
 CreateTabButton("ESP", "🛡️", ESPPage)
 CreateTabButton("Teleport", "📍", TeleportPage)
+CreateTabButton("Skins", "👕", SkinchangerPage)
 CreateTabButton("Misc", "⚡", MiscPage)
 CreateTabButton("Settings", "⚙️", SettingsPage)
 
@@ -735,10 +825,13 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- MAIN LOOP
+-- MAIN LOOP (Optimized frame budgeting to fix FPS drops)
 local tracersList = {}
+local frameCounter = 0
 
 RunService.RenderStepped:Connect(function()
+    frameCounter = frameCounter + 1
+    
     local char = LocalPlayer.Character
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -754,13 +847,11 @@ RunService.RenderStepped:Connect(function()
         humanoid.WalkSpeed = baseSpeed * currentMultiplier
     end
 
-    if MiscConfig.NoCollision then
+    if MiscConfig.NoCollision and frameCounter % 5 == 0 then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 for _, part in ipairs(player.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end
@@ -768,9 +859,7 @@ RunService.RenderStepped:Connect(function()
 
     if MiscConfig.NoClipWall and char then
         for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
+            if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
 
@@ -794,84 +883,80 @@ RunService.RenderStepped:Connect(function()
         bv.Velocity = moveDir * MiscConfig.FlySpeed
         humanoid.PlatformStand = true
     else
-        if hrp and hrp:FindFirstChild("EasyFlyForce") then
-            hrp.EasyFlyForce:Destroy()
-        end
-        if humanoid then
-            humanoid.PlatformStand = false
-        end
+        if hrp and hrp:FindFirstChild("EasyFlyForce") then hrp.EasyFlyForce:Destroy() end
+        if humanoid then humanoid.PlatformStand = false end
     end
 
-    -- Gun ESP Logic with 3D/Screen GUI button integration
-    local foundGunObj = nil
-    if ESPConfig.GunESP then
-        foundGunObj = searchForGun(Workspace)
-    end
+    -- Optimized Gun ESP Logic (updates every 10 frames to stop lagging)
+    if ESPConfig.GunESP and frameCounter % 10 == 0 then
+        local foundGunObj = searchForGun(Workspace)
+        if foundGunObj then
+            local handle = foundGunObj:FindFirstChild("Handle") or foundGunObj:FindFirstChildWhichIsA("BasePart")
+            if handle then
+                local bg = foundGunObj:FindFirstChild("EasyGunESP")
+                if not bg then
+                    bg = Instance.new("BillboardGui")
+                    bg.Name = "EasyGunESP"
+                    bg.Adornee = handle
+                    bg.Size = UDim2.new(0, 160, 0, 50)
+                    bg.StudsOffset = Vector3.new(0, 2.5, 0)
+                    bg.AlwaysOnTop = true
+                    bg.Parent = foundGunObj
 
-    if foundGunObj then
-        local handle = foundGunObj:FindFirstChild("Handle") or foundGunObj:FindFirstChildWhichIsA("BasePart")
-        if handle then
-            local bg = foundGunObj:FindFirstChild("EasyGunESP")
-            if not bg then
-                bg = Instance.new("BillboardGui")
-                bg.Name = "EasyGunESP"
-                bg.Adornee = handle
-                bg.Size = UDim2.new(0, 160, 0, 50)
-                bg.StudsOffset = Vector3.new(0, 2.5, 0)
-                bg.AlwaysOnTop = true
-                bg.Parent = foundGunObj
+                    local txt = Instance.new("TextLabel")
+                    txt.Name = "GunText"
+                    txt.Size = UDim2.new(1, 0, 0, 20)
+                    txt.BackgroundTransparency = 1
+                    txt.Font = Enum.Font.GothamBold
+                    txt.TextSize = 13
+                    txt.TextColor3 = Color3.fromRGB(241, 196, 15)
+                    txt.TextStrokeTransparency = 0.4
+                    txt.Text = "[DROP GUN]"
+                    txt.Parent = bg
 
-                local txt = Instance.new("TextLabel")
-                txt.Name = "GunText"
-                txt.Size = UDim2.new(1, 0, 0, 20)
-                txt.BackgroundTransparency = 1
-                txt.Font = Enum.Font.GothamBold
-                txt.TextSize = 13
-                txt.TextColor3 = Color3.fromRGB(241, 196, 15)
-                txt.TextStrokeTransparency = 0.4
-                txt.Text = "[DROP GUN]"
-                txt.Parent = bg
+                    local lootBtn = Instance.new("TextButton")
+                    lootBtn.Name = "LootButton"
+                    lootBtn.Position = UDim2.new(0.15, 0, 0, 22)
+                    lootBtn.Size = UDim2.new(0.7, 0, 0, 24)
+                    lootBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+                    lootBtn.Font = Enum.Font.GothamBold
+                    lootBtn.TextSize = 11
+                    lootBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    lootBtn.Text = "Loot Gun"
+                    lootBtn.Parent = bg
 
-                local lootBtn = Instance.new("TextButton")
-                lootBtn.Name = "LootButton"
-                lootBtn.Position = UDim2.new(0.15, 0, 0, 22)
-                lootBtn.Size = UDim2.new(0.7, 0, 0, 24)
-                lootBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-                lootBtn.Font = Enum.Font.GothamBold
-                lootBtn.TextSize = 11
-                lootBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                lootBtn.Text = "Loot Gun"
-                lootBtn.Parent = bg
+                    local lCorner = Instance.new("UICorner")
+                    lCorner.CornerRadius = UDim.new(0, 6)
+                    lCorner.Parent = lootBtn
 
-                local lCorner = Instance.new("UICorner")
-                lCorner.CornerRadius = UDim.new(0, 6)
-                lCorner.Parent = lootBtn
-
-                lootBtn.MouseButton1Click:Connect(function()
-                    local lChar = LocalPlayer.Character
-                    if lChar and lChar:FindFirstChild("HumanoidRootPart") then
-                        lChar.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 2, 0)
-                        task.wait(0.1)
-                        pcall(function()
-                            firetouchinterest(lChar.HumanoidRootPart, handle, 0)
-                            firetouchinterest(lChar.HumanoidRootPart, handle, 1)
-                        end)
-                    end
-                end)
+                    lootBtn.MouseButton1Click:Connect(function()
+                        local lChar = LocalPlayer.Character
+                        if lChar and lChar:FindFirstChild("HumanoidRootPart") then
+                            lChar.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 2, 0)
+                            task.wait(0.1)
+                            pcall(function()
+                                firetouchinterest(lChar.HumanoidRootPart, handle, 0)
+                                firetouchinterest(lChar.HumanoidRootPart, handle, 1)
+                            end)
+                        end
+                    end)
+                end
+                bg.Enabled = true
             end
-            bg.Enabled = true
+        else
+            cachedGun = nil
         end
-    else
+    elseif not ESPConfig.GunESP then
+        cachedGun = nil
         for _, obj in ipairs(Workspace:GetChildren()) do
             if obj:IsA("Model") or obj:IsA("Folder") then
                 local gunEsp = obj:FindFirstChild("EasyGunESP", true)
-                if gunEsp then
-                    gunEsp:Destroy()
-                end
+                if gunEsp then gunEsp:Destroy() end
             end
         end
     end
 
+    -- Player ESP loop
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local pChar = player.Character
