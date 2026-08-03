@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -312,7 +313,7 @@ local function CreateToggle(parent, name, idName, callback)
     end)
 end
 
--- Button helper for Teleport actions
+-- Button helper for actions
 local function CreateButton(parent, name, callback)
     local ActionButton = Instance.new("TextButton")
     ActionButton.Parent = parent
@@ -467,6 +468,7 @@ local ESPConfig = {
     HealthMode = "Text",
     MurdererESP = false,
     SheriffESP = false,
+    GunESP = false,
     ChamsColor = Color3.fromRGB(46, 204, 113),       -- Green
     TracersColor = Color3.fromRGB(255, 255, 255),    -- White
     InnocentTracerColor = Color3.fromRGB(46, 204, 113), -- Green
@@ -486,6 +488,36 @@ CreateDropdown(ESPPage, "Health Display", {"Text", "Bar"}, "Text", function(val)
 CreateCategoryLabel(ESPPage, "MM2 ROLES ESP")
 CreateToggle(ESPPage, "Murderer ESP", "MurdererESP", function(state) ESPConfig.MurdererESP = state end)
 CreateToggle(ESPPage, "Sheriff ESP", "SheriffESP", function(state) ESPConfig.SheriffESP = state end)
+CreateToggle(ESPPage, "Sheriff Gun ESP", "GunESP", function(state) ESPConfig.GunESP = state end)
+
+CreateCategoryLabel(ESPPage, "GUN ACTIONS")
+CreateButton(ESPPage, "Loot Gun", function()
+    local char = LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
+    
+    local function searchForGun(parent)
+        for _, obj in ipairs(parent:GetChildren()) do
+            if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
+                return obj
+            elseif obj:IsA("Model") or obj:IsA("Folder") then
+                local found = searchForGun(obj)
+                if found then return found end
+            end
+        end
+        return nil
+    end
+
+    local droppedGun = searchForGun(Workspace)
+    if droppedGun then
+        local handle = droppedGun:FindFirstChild("Handle") or droppedGun:FindFirstChildWhichIsA("BasePart")
+        if handle then
+            char.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 2, 0)
+            task.wait(0.1)
+            firetouchinterest(char.HumanoidRootPart, handle, 0)
+            firetouchinterest(char.HumanoidRootPart, handle, 1)
+        end
+    end
+end)
 
 CreateCategoryLabel(ESPPage, "COLORS")
 CreateDropdown(ESPPage, "Chams Color", {"Green", "Blue", "Red", "Purple", "Yellow"}, "Green", function(val)
@@ -766,6 +798,61 @@ RunService.RenderStepped:Connect(function()
         end
         if humanoid then
             humanoid.PlatformStand = false
+        end
+    end
+
+    -- Gun ESP Logic
+    local foundGunObj = nil
+    local function findGunRecursive(parent)
+        for _, obj in ipairs(parent:GetChildren()) do
+            if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
+                return obj
+            elseif obj:IsA("Model") or obj:IsA("Folder") then
+                local found = findGunRecursive(obj)
+                if found then return found end
+            end
+        end
+        return nil
+    end
+
+    if ESPConfig.GunESP then
+        foundGunObj = findGunRecursive(Workspace)
+    end
+
+    if foundGunObj then
+        local handle = foundGunObj:FindFirstChild("Handle") or foundGunObj:FindFirstChildWhichIsA("BasePart")
+        if handle then
+            local bg = foundGunObj:FindFirstChild("EasyGunESP")
+            if not bg then
+                bg = Instance.new("BillboardGui")
+                bg.Name = "EasyGunESP"
+                bg.Adornee = handle
+                bg.Size = UDim2.new(0, 100, 0, 30)
+                bg.StudsOffset = Vector3.new(0, 2, 0)
+                bg.AlwaysOnTop = true
+                bg.Parent = foundGunObj
+
+                local txt = Instance.new("TextLabel")
+                txt.Name = "GunText"
+                txt.Size = UDim2.new(1, 0, 1, 0)
+                txt.BackgroundTransparency = 1
+                txt.Font = Enum.Font.GothamBold
+                txt.TextSize = 13
+                txt.TextColor3 = Color3.fromRGB(241, 196, 15)
+                txt.TextStrokeTransparency = 0.4
+                txt.Text = "[DROP GUN]"
+                txt.Parent = bg
+            end
+            bg.Enabled = true
+        end
+    else
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") or obj:IsA("Folder") then
+                local gunEsp = obj:FindFirstChild("EasyGunESP", true)
+                if gunEsp then
+                    gunEsp:Destroy()
+                end
+            end
         end
     end
 
