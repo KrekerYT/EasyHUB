@@ -1,126 +1,118 @@
 --[[
-    EasyHUB UI Library
-    A dark, rounded "game hub" style interface for Roblox.
-    Sidebar navigation + top tabs + sliders/toggles/dropdowns,
-    styled after modern script-hub UIs.
+    EasyHUB UI Library (standalone, self-running)
+    Run this whole file directly in your executor - it builds and
+    shows the window itself, no extra setup needed.
 
-    USAGE:
-        local EasyHUB = loadstring(readfile("EasyHUB.lua"))() -- or require via your loader
-        local Window = EasyHUB:CreateWindow({
-            Title = "EasyHUB",
-            SubTitle = "Universal Script Hub",
-            ToggleKeys = {Enum.KeyCode.Home, Enum.KeyCode.P}, -- optional, this is the default
-        })
-
-        local MainTab = Window:AddCategory("Main", "🏠")
-        local Section = MainTab:AddSection("General")
-
-        Section:AddToggle({Text = "Example Toggle", Default = false, Callback = function(state) end})
-        Section:AddSlider({Text = "Example Slider", Min = 0, Max = 200, Default = 100, Callback = function(v) end})
-        Section:AddDropdown({Text = "Example Dropdown", Options = {"A","B","C"}, Default = "A", Callback = function(v) end})
-        Section:AddButton({Text = "Example Button", Callback = function() end})
+    - Floating "EasyMenu" button, top-center of the screen, draggable.
+    - Click it (or press HOME / P) to open/close the main window.
+    - Main window is draggable via its top bar.
+    - Sidebar: Main, ESP.
 ]]
 
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
+local ok, err = pcall(function()
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    local TweenService     = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+    local Players          = game:GetService("Players")
 
---// THEME =========================================================
-local Theme = {
-    Background   = Color3.fromRGB(18, 19, 24),
-    Sidebar      = Color3.fromRGB(15, 16, 20),
-    Card         = Color3.fromRGB(24, 25, 31),
-    CardHover    = Color3.fromRGB(30, 31, 38),
-    Stroke       = Color3.fromRGB(40, 41, 50),
-    Accent       = Color3.fromRGB(114, 137, 255),   -- periwinkle accent
-    AccentDim    = Color3.fromRGB(70, 82, 160),
-    Text         = Color3.fromRGB(235, 235, 240),
-    SubText      = Color3.fromRGB(150, 152, 165),
-    Font         = Enum.Font.GothamMedium,
-    FontBold     = Enum.Font.GothamBold,
-}
+    local LocalPlayer = Players.LocalPlayer
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
---// UTILITIES ======================================================
-local function create(class, props, children)
-    local inst = Instance.new(class)
-    for prop, value in pairs(props or {}) do
-        inst[prop] = value
+    -- Pick the safest GUI parent available in this environment.
+    -- Some executors hide/strip GUIs parented to PlayerGui, so we
+    -- prefer gethui() (protected UI layer), then CoreGui, then fall
+    -- back to PlayerGui if neither is available.
+    local function getGuiParent()
+        local success, result = pcall(function()
+            if gethui then return gethui() end
+        end)
+        if success and result then return result end
+
+        success, result = pcall(function()
+            return game:GetService("CoreGui")
+        end)
+        if success and result then return result end
+
+        return PlayerGui
     end
-    for _, child in ipairs(children or {}) do
-        child.Parent = inst
+
+    local GuiParent = getGuiParent()
+
+    --// THEME =====================================================
+    local Theme = {
+        Background = Color3.fromRGB(18, 19, 24),
+        Sidebar    = Color3.fromRGB(15, 16, 20),
+        Card       = Color3.fromRGB(24, 25, 31),
+        CardHover  = Color3.fromRGB(30, 31, 38),
+        Stroke     = Color3.fromRGB(40, 41, 50),
+        Accent     = Color3.fromRGB(114, 137, 255),
+        Text       = Color3.fromRGB(235, 235, 240),
+        SubText    = Color3.fromRGB(150, 152, 165),
+        Font       = Enum.Font.GothamMedium,
+        FontBold   = Enum.Font.GothamBold,
+    }
+
+    --// UTILITIES =================================================
+    local function create(class, props, children)
+        local inst = Instance.new(class)
+        for prop, value in pairs(props or {}) do
+            inst[prop] = value
+        end
+        for _, child in ipairs(children or {}) do
+            child.Parent = inst
+        end
+        return inst
     end
-    return inst
-end
 
-local function corner(radius)
-    return create("UICorner", {CornerRadius = UDim.new(0, radius or 10)})
-end
+    local function corner(radius)
+        return create("UICorner", {CornerRadius = UDim.new(0, radius or 10)})
+    end
 
-local function stroke(color, thickness)
-    return create("UIStroke", {
-        Color = color or Theme.Stroke,
-        Thickness = thickness or 1,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-    })
-end
+    local function stroke(color, thickness)
+        return create("UIStroke", {
+            Color = color or Theme.Stroke,
+            Thickness = thickness or 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        })
+    end
 
-local function padding(all)
-    return create("UIPadding", {
-        PaddingTop = UDim.new(0, all),
-        PaddingBottom = UDim.new(0, all),
-        PaddingLeft = UDim.new(0, all),
-        PaddingRight = UDim.new(0, all),
-    })
-end
+    local function tween(inst, props, time)
+        TweenService:Create(inst, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+    end
 
-local function tween(inst, props, time)
-    TweenService:Create(inst, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
-end
+    local function makeDraggable(frame, dragHandle)
+        local dragging, dragStart, startPos
+        dragHandle.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = frame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        dragHandle.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - dragStart
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+    end
 
-local function makeDraggable(frame, dragHandle)
-    local dragging, dragStart, startPos
-    dragHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    dragHandle.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
-
---// LIBRARY =========================================================
-local EasyHUB = {}
-EasyHUB.__index = EasyHUB
-
-function EasyHUB:CreateWindow(config)
-    config = config or {}
-    local Title = config.Title or "EasyHUB"
-    local SubTitle = config.SubTitle or "Script Hub"
-    local ToggleKeys = config.ToggleKeys or {Enum.KeyCode.Home, Enum.KeyCode.P}
-
-    -- remove old instance if present
-    local old = PlayerGui:FindFirstChild("EasyHUB_ScreenGui")
-    if old then old:Destroy() end
+    -- remove any previous instance of the GUI
+    local existing = GuiParent:FindFirstChild("EasyHUB_ScreenGui")
+    if existing then existing:Destroy() end
 
     local ScreenGui = create("ScreenGui", {
         Name = "EasyHUB_ScreenGui",
         ResetOnSpawn = false,
+        IgnoreGuiInset = true,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        Parent = PlayerGui,
+        DisplayOrder = 999,
+        Parent = GuiParent,
     })
 
     local Main = create("Frame", {
@@ -133,7 +125,7 @@ function EasyHUB:CreateWindow(config)
     }, {corner(14), stroke(Theme.Stroke, 1)})
 
     ------------------------------------------------------------------
-    -- FLOATING TOGGLE BUTTON ("EasyMenu") - top center of the screen
+    -- FLOATING TOGGLE BUTTON ("EasyMenu")
     ------------------------------------------------------------------
     local FloatBtn = create("TextButton", {
         Name = "EasyMenuToggle",
@@ -168,7 +160,6 @@ function EasyHUB:CreateWindow(config)
 
     local function setMenuVisible(visible)
         Main.Visible = visible
-        FloatBtn:SetAttribute("MenuOpen", visible)
     end
 
     FloatBtn.MouseButton1Click:Connect(function()
@@ -176,24 +167,15 @@ function EasyHUB:CreateWindow(config)
     end)
     FloatBtn.MouseEnter:Connect(function() tween(FloatBtn, {BackgroundColor3 = Theme.CardHover}) end)
     FloatBtn.MouseLeave:Connect(function() tween(FloatBtn, {BackgroundColor3 = Theme.Card}) end)
-
-    -- the floating button itself is also draggable, independent of the main window
     makeDraggable(FloatBtn, FloatBtn)
 
-    -- subtle drop shadow
-    create("ImageLabel", {
-        Image = "rbxassetid://1316045217",
-        ImageColor3 = Color3.new(0,0,0),
-        ImageTransparency = 0.5,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(10,10,118,118),
-        Size = UDim2.new(1, 60, 1, 60),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1,
-        ZIndex = 0,
-        Parent = Main,
-    })
+    -- HOME and P both toggle the menu
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == Enum.KeyCode.Home or input.KeyCode == Enum.KeyCode.P then
+            setMenuVisible(not Main.Visible)
+        end
+    end)
 
     ------------------------------------------------------------------
     -- TOP BAR
@@ -215,14 +197,14 @@ function EasyHUB:CreateWindow(config)
         Text = "E",
         Font = Theme.FontBold,
         TextSize = 18,
-        TextColor3 = Color3.new(1,1,1),
+        TextColor3 = Color3.new(1, 1, 1),
         BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1,1),
+        Size = UDim2.fromScale(1, 1),
         Parent = LogoDot,
     })
 
     create("TextLabel", {
-        Text = Title,
+        Text = "EasyHUB",
         Font = Theme.FontBold,
         TextSize = 16,
         TextColor3 = Theme.Text,
@@ -233,7 +215,7 @@ function EasyHUB:CreateWindow(config)
         Parent = TopBar,
     })
     create("TextLabel", {
-        Text = SubTitle,
+        Text = "Universal Script Hub",
         Font = Theme.Font,
         TextSize = 12,
         TextColor3 = Theme.SubText,
@@ -244,22 +226,47 @@ function EasyHUB:CreateWindow(config)
         Parent = TopBar,
     })
 
-    -- tab pill container (UI / Theme / Configs)
     local TabHolder = create("Frame", {
         Size = UDim2.fromOffset(220, 34),
         Position = UDim2.fromOffset(220, 11),
         BackgroundColor3 = Theme.Sidebar,
         Parent = TopBar,
     }, {corner(9), stroke(Theme.Stroke, 1)})
-    local TabLayout = create("UIListLayout", {
+    create("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
         Padding = UDim.new(0, 4),
         VerticalAlignment = Enum.VerticalAlignment.Center,
         Parent = TabHolder,
     })
-    create("UIPadding", {PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4), Parent = TabHolder})
+    create("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4), Parent = TabHolder})
 
-    -- search box
+    local function addTopTab(name, isDefault)
+        local btn = create("TextButton", {
+            AutoButtonSize = false,
+            Size = UDim2.new(0, 68, 1, -6),
+            Text = name,
+            Font = Theme.Font,
+            TextSize = 13,
+            TextColor3 = isDefault and Color3.new(1, 1, 1) or Theme.SubText,
+            BackgroundColor3 = Theme.Accent,
+            BackgroundTransparency = isDefault and 0 or 1,
+            Parent = TabHolder,
+        }, {corner(7)})
+        btn.MouseButton1Click:Connect(function()
+            for _, child in ipairs(TabHolder:GetChildren()) do
+                if child:IsA("TextButton") then
+                    tween(child, {BackgroundTransparency = 1})
+                    child.TextColor3 = Theme.SubText
+                end
+            end
+            tween(btn, {BackgroundTransparency = 0})
+            btn.TextColor3 = Color3.new(1, 1, 1)
+        end)
+    end
+    addTopTab("UI", true)
+    addTopTab("Theme", false)
+    addTopTab("Configs", false)
+
     local SearchBox = create("Frame", {
         Size = UDim2.fromOffset(160, 34),
         Position = UDim2.new(1, -230, 0, 11),
@@ -280,7 +287,6 @@ function EasyHUB:CreateWindow(config)
         Parent = SearchBox,
     })
 
-    -- close button
     local CloseBtn = create("TextButton", {
         Text = "X",
         Font = Theme.FontBold,
@@ -292,13 +298,13 @@ function EasyHUB:CreateWindow(config)
         Parent = TopBar,
     })
     CloseBtn.MouseButton1Click:Connect(function()
-        ScreenGui.Enabled = false
+        setMenuVisible(false)
     end)
 
     makeDraggable(Main, TopBar)
 
     ------------------------------------------------------------------
-    -- SIDEBAR
+    -- SIDEBAR + CONTENT
     ------------------------------------------------------------------
     local Sidebar = create("Frame", {
         Size = UDim2.new(0, 160, 1, -56),
@@ -306,15 +312,9 @@ function EasyHUB:CreateWindow(config)
         BackgroundColor3 = Theme.Sidebar,
         Parent = Main,
     })
-    local SidebarList = create("UIListLayout", {
-        Padding = UDim.new(0, 2),
-        Parent = Sidebar,
-    })
-    create("UIPadding", {PaddingTop = UDim.new(0,8), PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8), Parent = Sidebar})
+    create("UIListLayout", {Padding = UDim.new(0, 2), Parent = Sidebar})
+    create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), Parent = Sidebar})
 
-    ------------------------------------------------------------------
-    -- CONTENT AREA
-    ------------------------------------------------------------------
     local Content = create("Frame", {
         Size = UDim2.new(1, -160, 1, -56),
         Position = UDim2.fromOffset(160, 56),
@@ -329,57 +329,10 @@ function EasyHUB:CreateWindow(config)
         Parent = Content,
     })
 
-    -- toggle visibility with keybind(s) - default Home and P (same behavior as the EasyMenu button)
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        for _, key in ipairs(ToggleKeys) do
-            if input.KeyCode == key then
-                setMenuVisible(not Main.Visible)
-                break
-            end
-        end
-    end)
+    local categories = {}
 
-    ------------------------------------------------------------------
-    local Window = setmetatable({
-        ScreenGui = ScreenGui,
-        Main = Main,
-        Sidebar = Sidebar,
-        Content = Content,
-        TabHolder = TabHolder,
-        Categories = {},
-        _activePage = nil,
-    }, EasyHUB)
-
-    -- top pill tabs (purely cosmetic sections e.g. UI/Theme/Configs)
-    function Window:AddTopTab(name, isDefault)
-        local btn = create("TextButton", {
-            AutoButtonSize = false,
-            Size = UDim2.new(0, 68, 1, -6),
-            Text = name,
-            Font = Theme.Font,
-            TextSize = 13,
-            TextColor3 = isDefault and Color3.new(1,1,1) or Theme.SubText,
-            BackgroundColor3 = Theme.Accent,
-            BackgroundTransparency = isDefault and 0 or 1,
-            Parent = TabHolder,
-        }, {corner(7)})
-        btn.MouseButton1Click:Connect(function()
-            for _, child in ipairs(TabHolder:GetChildren()) do
-                if child:IsA("TextButton") then
-                    tween(child, {BackgroundTransparency = 1})
-                    child.TextColor3 = Theme.SubText
-                end
-            end
-            tween(btn, {BackgroundTransparency = 0})
-            btn.TextColor3 = Color3.new(1,1,1)
-        end)
-        return btn
-    end
-
-    -- sidebar category (Main, Combat, Settings, etc.)
-    function Window:AddCategory(name, icon)
-        local isFirst = next(self.Categories) == nil
+    local function addCategory(name, icon)
+        local isFirst = #categories == 0
 
         local Item = create("TextButton", {
             AutoButtonSize = false,
@@ -399,7 +352,7 @@ function EasyHUB:CreateWindow(config)
         }, {corner(2)})
 
         create("TextLabel", {
-            Text = (icon or "•") .. "   " .. name,
+            Text = (icon and (icon .. "  ") or "") .. name,
             Font = isFirst and Theme.FontBold or Theme.Font,
             TextSize = 13,
             TextColor3 = isFirst and Theme.Text or Theme.SubText,
@@ -417,18 +370,15 @@ function EasyHUB:CreateWindow(config)
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
             ScrollBarImageColor3 = Theme.Accent,
-            CanvasSize = UDim2.new(0,0,0,0),
+            CanvasSize = UDim2.new(0, 0, 0, 0),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             Visible = isFirst,
             Parent = Content,
         })
-        local PageLayout = create("UIListLayout", {
-            Padding = UDim.new(0, 14),
-            Parent = Page,
-        })
+        create("UIListLayout", {Padding = UDim.new(0, 14), Parent = Page})
 
         Item.MouseButton1Click:Connect(function()
-            for _, cat in ipairs(self.Categories) do
+            for _, cat in ipairs(categories) do
                 tween(cat.Item, {BackgroundTransparency = 1})
                 tween(cat.ActiveBar, {BackgroundTransparency = 1})
                 cat.Item.Label.Font = Theme.Font
@@ -442,14 +392,11 @@ function EasyHUB:CreateWindow(config)
             Page.Visible = true
         end)
 
-        local Category = setmetatable({
-            Item = Item,
-            ActiveBar = activeBar,
-            Page = Page,
-        }, {__index = EasyHUB})
+        local cat = {Item = Item, ActiveBar = activeBar, Page = Page}
+        table.insert(categories, cat)
 
-        function Category:AddSection(sectionName)
-            local SectionHeader = create("TextLabel", {
+        local function addSection(sectionName)
+            create("TextLabel", {
                 Text = sectionName,
                 Font = Theme.FontBold,
                 TextSize = 12,
@@ -466,32 +413,23 @@ function EasyHUB:CreateWindow(config)
                 BackgroundColor3 = Theme.Card,
                 Parent = Page,
             }, {corner(10), stroke(Theme.Stroke, 1)})
-            local CardLayout = create("UIListLayout", {
-                Padding = UDim.new(0, 14),
+            create("UIListLayout", {Padding = UDim.new(0, 14), Parent = Card})
+            create("UIPadding", {
+                PaddingTop = UDim.new(0, 16), PaddingBottom = UDim.new(0, 16),
+                PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16),
                 Parent = Card,
             })
-            padding(16).Parent = Card
 
-            local Section = {}
-
-            function Section:AddToggle(cfg)
+            local function addToggle(cfg)
                 cfg = cfg or {}
                 local state = cfg.Default or false
 
-                local Row = create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 20),
-                    BackgroundTransparency = 1,
-                    Parent = Card,
-                })
+                local Row = create("Frame", {Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, Parent = Card})
                 create("TextLabel", {
                     Text = cfg.Text or "Toggle",
-                    Font = Theme.Font,
-                    TextSize = 13,
-                    TextColor3 = Theme.Text,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, -50, 1, 0),
-                    Parent = Row,
+                    Font = Theme.Font, TextSize = 13, TextColor3 = Theme.Text,
+                    TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1,
+                    Size = UDim2.new(1, -50, 1, 0), Parent = Row,
                 })
 
                 local Switch = create("Frame", {
@@ -503,16 +441,11 @@ function EasyHUB:CreateWindow(config)
                 local Knob = create("Frame", {
                     Size = UDim2.fromOffset(14, 14),
                     Position = state and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7),
-                    BackgroundColor3 = Color3.new(1,1,1),
+                    BackgroundColor3 = Color3.new(1, 1, 1),
                     Parent = Switch,
                 }, {corner(7)})
 
-                local Btn = create("TextButton", {
-                    Size = UDim2.fromScale(1,1),
-                    BackgroundTransparency = 1,
-                    Text = "",
-                    Parent = Switch,
-                })
+                local Btn = create("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", Parent = Switch})
                 Btn.MouseButton1Click:Connect(function()
                     state = not state
                     tween(Switch, {BackgroundColor3 = state and Theme.Accent or Theme.Sidebar})
@@ -520,269 +453,45 @@ function EasyHUB:CreateWindow(config)
                     if cfg.Callback then cfg.Callback(state) end
                 end)
 
+                if state and cfg.Callback then cfg.Callback(true) end
                 return Switch
             end
 
-            function Section:AddSlider(cfg)
-                cfg = cfg or {}
-                local min, max = cfg.Min or 0, cfg.Max or 100
-                local value = cfg.Default or min
-
-                local Row = create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 40),
-                    BackgroundTransparency = 1,
-                    Parent = Card,
-                })
-                create("TextLabel", {
-                    Text = cfg.Text or "Slider",
-                    Font = Theme.Font,
-                    TextSize = 13,
-                    TextColor3 = Theme.Text,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, -50, 0, 18),
-                    Parent = Row,
-                })
-                local ValueLabel = create("TextLabel", {
-                    Text = tostring(value),
-                    Font = Theme.Font,
-                    TextSize = 13,
-                    TextColor3 = Theme.SubText,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(0, 50, 0, 18),
-                    Position = UDim2.new(1, -50, 0, 0),
-                    Parent = Row,
-                })
-
-                local Track = create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 6),
-                    Position = UDim2.fromOffset(0, 26),
-                    BackgroundColor3 = Theme.Sidebar,
-                    Parent = Row,
-                }, {corner(3)})
-                local Fill = create("Frame", {
-                    Size = UDim2.new((value - min) / (max - min), 0, 1, 0),
-                    BackgroundColor3 = Theme.Accent,
-                    Parent = Track,
-                }, {corner(3)})
-                local Knob = create("Frame", {
-                    Size = UDim2.fromOffset(14, 14),
-                    Position = UDim2.new((value - min) / (max - min), -7, 0.5, -7),
-                    BackgroundColor3 = Color3.new(1,1,1),
-                    ZIndex = 2,
-                    Parent = Track,
-                }, {corner(7)})
-
-                local dragging = false
-                local function update(inputPos)
-                    local rel = math.clamp((inputPos - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-                    local val = math.floor(min + (max - min) * rel)
-                    Fill.Size = UDim2.new(rel, 0, 1, 0)
-                    Knob.Position = UDim2.new(rel, -7, 0.5, -7)
-                    ValueLabel.Text = tostring(val)
-                    if cfg.Callback then cfg.Callback(val) end
-                end
-
-                Track.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        dragging = true
-                        update(input.Position.X)
-                    end
-                end)
-                UserInputService.InputChanged:Connect(function(input)
-                    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                        update(input.Position.X)
-                    end
-                end)
-                UserInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        dragging = false
-                    end
-                end)
-
-                return Row
-            end
-
-            function Section:AddDropdown(cfg)
-                cfg = cfg or {}
-                local options = cfg.Options or {}
-                local selected = cfg.Default or options[1]
-                local open = false
-
-                local Row = create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 20),
-                    BackgroundTransparency = 1,
-                    Parent = Card,
-                })
-                create("TextLabel", {
-                    Text = cfg.Text or "Dropdown",
-                    Font = Theme.Font,
-                    TextSize = 13,
-                    TextColor3 = Theme.Text,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, -120, 1, 0),
-                    Parent = Row,
-                })
-
-                local Box = create("TextButton", {
-                    Size = UDim2.fromOffset(110, 26),
-                    Position = UDim2.new(1, -110, 0.5, -13),
-                    BackgroundColor3 = Theme.Sidebar,
-                    Text = tostring(selected) .. "  ▾",
-                    Font = Theme.Font,
-                    TextSize = 12,
-                    TextColor3 = Theme.Text,
-                    Parent = Row,
-                }, {corner(7), stroke(Theme.Stroke, 1)})
-
-                local OptionsFrame = create("Frame", {
-                    Size = UDim2.new(1, 0, 0, #options * 26),
-                    Position = UDim2.fromOffset(0, 30),
-                    BackgroundColor3 = Theme.Sidebar,
-                    Visible = false,
-                    ZIndex = 5,
-                    Parent = Box,
-                }, {corner(7), stroke(Theme.Stroke, 1)})
-                local OptLayout = create("UIListLayout", {Parent = OptionsFrame})
-
-                for _, opt in ipairs(options) do
-                    local OptBtn = create("TextButton", {
-                        Size = UDim2.new(1, 0, 0, 26),
-                        BackgroundTransparency = 1,
-                        Text = tostring(opt),
-                        Font = Theme.Font,
-                        TextSize = 12,
-                        TextColor3 = Theme.SubText,
-                        ZIndex = 5,
-                        Parent = OptionsFrame,
-                    })
-                    OptBtn.MouseButton1Click:Connect(function()
-                        selected = opt
-                        Box.Text = tostring(opt) .. "  ▾"
-                        OptionsFrame.Visible = false
-                        if cfg.Callback then cfg.Callback(opt) end
-                    end)
-                end
-
-                Box.MouseButton1Click:Connect(function()
-                    open = not open
-                    OptionsFrame.Visible = open
-                end)
-
-                return Row
-            end
-
-            function Section:AddButton(cfg)
-                cfg = cfg or {}
-                local Btn = create("TextButton", {
-                    Size = UDim2.new(1, 0, 0, 34),
-                    BackgroundColor3 = Theme.Sidebar,
-                    Text = cfg.Text or "Button",
-                    Font = Theme.FontBold,
-                    TextSize = 13,
-                    TextColor3 = Theme.Text,
-                    Parent = Card,
-                }, {corner(8), stroke(Theme.Stroke, 1)})
-                Btn.MouseEnter:Connect(function() tween(Btn, {BackgroundColor3 = Theme.CardHover}) end)
-                Btn.MouseLeave:Connect(function() tween(Btn, {BackgroundColor3 = Theme.Sidebar}) end)
-                Btn.MouseButton1Click:Connect(function()
-                    if cfg.Callback then cfg.Callback() end
-                end)
-                return Btn
-            end
-
-            function Section:AddLabel(text)
+            local function addLabel(text)
                 return create("TextLabel", {
-                    Text = text,
-                    Font = Theme.Font,
-                    TextSize = 12,
-                    TextColor3 = Theme.SubText,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, 0, 0, 16),
-                    Parent = Card,
+                    Text = text, Font = Theme.Font, TextSize = 12, TextColor3 = Theme.SubText,
+                    TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 0, 16), Parent = Card,
                 })
             end
 
-            return Section
+            return {AddToggle = addToggle, AddLabel = addLabel}
         end
 
-        table.insert(self.Categories, Category)
-        return Category
+        return {AddSection = addSection}
     end
 
-    -- default top tabs like the reference (UI / Theme / Configs)
-    Window:AddTopTab("UI", true)
-    Window:AddTopTab("Theme", false)
-    Window:AddTopTab("Configs", false)
-
     ------------------------------------------------------------------
-    -- Example: ESP category (UI entries only — wire up the Callback
-    -- functions yourself with your own rendering logic)
-    ------------------------------------------------------------------
-    local ESP = Window:AddCategory("ESP", "👁️")
-    local PlayerESP = ESP:AddSection("Player ESP")
+    local MainCat = addCategory("Main", "🏠")
+    local MainSection = MainCat.AddSection("General")
+    MainSection.AddLabel("Welcome to EasyHUB")
 
-    PlayerESP:AddToggle({
-        Text = "Chams",
-        Default = false,
-        Callback = function(state)
-            -- hook your chams (highlight) logic here
-        end,
-    })
-    PlayerESP:AddToggle({
-        Text = "Tracers",
-        Default = false,
-        Callback = function(state)
-            -- hook your tracer-line-to-player logic here
-        end,
-    })
-    PlayerESP:AddToggle({
-        Text = "Names",
-        Default = false,
-        Callback = function(state)
-            -- hook your nickname-label logic here
-        end,
-    })
-    PlayerESP:AddToggle({
-        Text = "Health",
-        Default = false,
-        Callback = function(state)
-            -- hook your HP-label logic here
-        end,
-    })
-    PlayerESP:AddToggle({
-        Text = "Box ESP",
-        Default = false,
-        Callback = function(state)
-            -- hook your bounding-box-around-player logic here
-        end,
-    })
-    PlayerESP:AddToggle({
-        Text = "Distance",
-        Default = false,
-        Callback = function(state)
-            -- hook your distance-to-player label logic here
-        end,
-    })
+    local ESP = addCategory("ESP", "👁")
+    local PlayerESP = ESP.AddSection("Player ESP")
 
-    return Window
+    -- ESP toggles - default ON. Empty callback bodies are where you
+    -- plug in your own rendering logic (highlights, tracer lines,
+    -- billboard labels, etc.) - none is implemented here.
+    PlayerESP.AddToggle({Text = "Chams",   Default = true, Callback = function(state) end})
+    PlayerESP.AddToggle({Text = "Tracers", Default = true, Callback = function(state) end})
+    PlayerESP.AddToggle({Text = "Names",   Default = true, Callback = function(state) end})
+    PlayerESP.AddToggle({Text = "Health",  Default = true, Callback = function(state) end})
+    PlayerESP.AddToggle({Text = "Box ESP", Default = true, Callback = function(state) end})
+    PlayerESP.AddToggle({Text = "Distance",Default = true, Callback = function(state) end})
+
+    print("[EasyHUB] loaded OK, parented to:", GuiParent:GetFullName())
+end)
+
+if not ok then
+    warn("[EasyHUB] FAILED TO LOAD: " .. tostring(err))
 end
-
-------------------------------------------------------------------
--- AUTO-RUN: this makes the whole file work as a standalone script.
--- Just execute this file directly and the window + button appear.
-------------------------------------------------------------------
-local Window = EasyHUB:CreateWindow({
-    Title = "EasyHUB",
-    SubTitle = "Universal Script Hub",
-    ToggleKeys = {Enum.KeyCode.Home, Enum.KeyCode.P},
-})
-
-local MainCat = Window:AddCategory("Main", "🏠")
-local MainSection = MainCat:AddSection("General")
-MainSection:AddLabel("Welcome to EasyHUB")
-
-return EasyHUB
