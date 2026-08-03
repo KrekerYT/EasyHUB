@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -105,7 +106,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v2.6 Professional"
+HubSubTitle.Text = "v2.7 Professional"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -187,6 +188,7 @@ end
 
 local ESPPage = CreatePage()
 local TeleportPage = CreatePage()
+local AimbotPage = CreatePage()
 local SkinchangerPage = CreatePage()
 local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
@@ -476,6 +478,29 @@ local function CreateDropdown(parent, name, options, defaultVal, callback)
     end)
 end
 
+-- ROLES HELPER
+local function GetMM2Role(player)
+    local character = player.Character
+    if not character then return "Innocent" end
+    
+    local containers = {player:FindFirstChild("Backpack"), character}
+    for _, container in ipairs(containers) do
+        if container then
+            for _, item in ipairs(container:GetChildren()) do
+                if item:IsA("Tool") then
+                    local itemName = item.Name:lower()
+                    if itemName == "knife" or itemName:find("knife") then
+                        return "Murderer"
+                    elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
+                        return "Sheriff"
+                    end
+                end
+            end
+        end
+    end
+    return "Innocent"
+end
+
 -- CONFIGS
 local ESPConfig = {
     Chams = false, 
@@ -492,8 +517,9 @@ local ESPConfig = {
     MurderColor = Color3.fromRGB(231, 76, 60),
     SheriffColor = Color3.fromRGB(52, 152, 219)
 }
-local SkinConfig = {Corblox = false, Headless = false}
+local SkinConfig = {Headless = false}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
+local AimConfig = {SilentAim = false, AutoShoot = false}
 
 -- ROBUST GUN FINDER
 local function searchForGun()
@@ -609,28 +635,6 @@ CreateButton(TeleportPage, "Teleport To Gun", function()
     end
 end)
 
-local function GetMM2Role(player)
-    local character = player.Character
-    if not character then return "Innocent" end
-    
-    local containers = {player:FindFirstChild("Backpack"), character}
-    for _, container in ipairs(containers) do
-        if container then
-            for _, item in ipairs(container:GetChildren()) do
-                if item:IsA("Tool") then
-                    local itemName = item.Name:lower()
-                    if itemName == "knife" or itemName:find("knife") then
-                        return "Murderer"
-                    elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
-                        return "Sheriff"
-                    end
-                end
-            end
-        end
-    end
-    return "Innocent"
-end
-
 CreateButton(TeleportPage, "Teleport To Murder", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
@@ -661,7 +665,12 @@ CreateButton(TeleportPage, "Teleport To Sheriff", function()
     end
 end)
 
--- SKINCHANGER TAB (Fixed True Corblox Leg Mesh Replacement)
+-- AIMBOT TAB (Sheriff Silent Aim & AutoShoot)
+CreateCategoryLabel(AimbotPage, "SHERIFF COMBAT")
+CreateToggle(AimbotPage, "Silent Aim (Redirect Shots)", "SilentAim", function(state) AimConfig.SilentAim = state end)
+CreateToggle(AimbotPage, "Auto Shoot Murderer", "AutoShoot", function(state) AimConfig.AutoShoot = state end)
+
+-- SKINCHANGER TAB (Headless only)
 CreateCategoryLabel(SkinchangerPage, "VISUAL SKINS")
 CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
     SkinConfig.Headless = state
@@ -676,46 +685,6 @@ CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
     end
 end)
 
-CreateToggle(SkinchangerPage, "Corblox Right Leg", "Corblox", function(state)
-    SkinConfig.Corblox = state
-    local char = LocalPlayer.Character
-    if char then
-        local rLegParts = {"RightLeg", "RightLowerLeg", "RightFoot"}
-        for _, partName in ipairs(rLegParts) do
-            local part = char:FindFirstChild(partName)
-            if part then
-                if state then
-                    part.Transparency = 1
-                    local mesh = part:FindFirstChildOfClass("SpecialMesh")
-                    if mesh then mesh.Transparency = 1 end
-                    
-                    if not part:FindFirstChild("CorbloxBone") then
-                        local bone = Instance.new("Part")
-                        bone.Name = "CorbloxBone"
-                        bone.Size = Vector3.new(0.6, 2.1, 0.6)
-                        bone.Color = Color3.fromRGB(15, 15, 15)
-                        bone.Material = Enum.Material.SmoothPlastic
-                        bone.CanCollide = false
-                        bone.Parent = part
-                        
-                        local weld = Instance.new("WeldConstraint")
-                        weld.Part0 = part
-                        weld.Part1 = bone
-                        weld.Parent = bone
-                        bone.CFrame = part.CFrame
-                    end
-                else
-                    part.Transparency = 0
-                    local mesh = part:FindFirstChildOfClass("SpecialMesh")
-                    if mesh then mesh.Transparency = 0 end
-                    local bone = part:FindFirstChild("CorbloxBone")
-                    if bone then bone:Destroy() end
-                end
-            end
-        end
-    end
-end)
-
 LocalPlayer.CharacterAdded:Connect(function(newChar)
     task.wait(1.2)
     if SkinConfig.Headless then
@@ -724,31 +693,6 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
             head.Transparency = 1
             local face = head:FindFirstChild("face")
             if face then face.Transparency = 1 end
-        end
-    end
-    if SkinConfig.Corblox then
-        local rLegParts = {"RightLeg", "RightLowerLeg", "RightFoot"}
-        for _, partName in ipairs(rLegParts) do
-            local part = newChar:FindFirstChild(partName)
-            if part then
-                part.Transparency = 1
-                local mesh = part:FindFirstChildOfClass("SpecialMesh")
-                if mesh then mesh.Transparency = 1 end
-                
-                local bone = Instance.new("Part")
-                bone.Name = "CorbloxBone"
-                bone.Size = Vector3.new(0.6, 2.1, 0.6)
-                bone.Color = Color3.fromRGB(15, 15, 15)
-                bone.Material = Enum.Material.SmoothPlastic
-                bone.CanCollide = false
-                bone.Parent = part
-                
-                local weld = Instance.new("WeldConstraint")
-                weld.Part0 = part
-                weld.Part1 = bone
-                weld.Parent = bone
-                bone.CFrame = part.CFrame
-            end
         end
     end
 end)
@@ -846,6 +790,7 @@ local function CreateTabButton(name, icon, targetPage)
     TabBtn.MouseButton1Click:Connect(function()
         ESPPage.Visible = false
         TeleportPage.Visible = false
+        AimbotPage.Visible = false
         SkinchangerPage.Visible = false
         MiscPage.Visible = false
         SettingsPage.Visible = false
@@ -866,6 +811,7 @@ end
 
 CreateTabButton("ESP", "🛡️", ESPPage)
 CreateTabButton("Teleport", "📍", TeleportPage)
+CreateTabButton("Aimbot", "🎯", AimbotPage)
 CreateTabButton("Skins", "👕", SkinchangerPage)
 CreateTabButton("Misc", "⚡", MiscPage)
 CreateTabButton("Settings", "⚙️", SettingsPage)
@@ -915,6 +861,41 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- SILENT AIM HOOK FOR MM2 GUN/PROJECTILE
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if AimConfig.SilentAim and GetMM2Role(LocalPlayer) == "Sheriff" then
+        if method == "FireServer" or method == "InvokeServer" then
+            -- Check if call is related to gun shooting/raycasting
+            local nameStr = tostring(self):lower()
+            if nameStr:find("shoot") or nameStr:find("gun") or nameStr:find("revolver") or nameStr:find("hit") then
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and GetMM2Role(player) == "Murderer" then
+                        local pChar = player.Character
+                        local pHrp = pChar and pChar:FindFirstChild("HumanoidRootPart")
+                        if pHrp then
+                            -- Override position arguments to target murderer's root part or head
+                            for i, v in ipairs(args) do
+                                if typeof(v) == "Vector3" then
+                                    args[i] = pHrp.Position
+                                elseif typeof(v) == "CFrame" then
+                                    args[i] = pHrp.CFrame
+                                end
+                            end
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
+    
+    return oldNamecall(self, unpack(args))
+end)
+
 -- HIGH-PERFORMANCE OPTIMIZED RENDER LOOP
 local tracersList = {}
 local frameCounter = 0
@@ -953,7 +934,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Fixed Flying Mechanics (Proper AssemblyLinearVelocity + Camera Look Vector)
+    -- Fixed Flying Mechanics
     if MiscConfig.Fly and hrp then
         local moveDir = Vector3.new(0, 0, 0)
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
@@ -972,6 +953,34 @@ RunService.RenderStepped:Connect(function()
     else
         if humanoid and humanoid.PlatformStand and not MiscConfig.Fly then 
             humanoid.PlatformStand = false 
+        end
+    end
+
+    -- Auto Shoot Murderer Logic for Sheriff
+    if AimConfig.AutoShoot and GetMM2Role(LocalPlayer) == "Sheriff" and char then
+        local gunTool = char:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+        if gunTool then
+            local isGunValid = gunTool.Name:lower():find("gun") or gunTool.Name:lower():find("revolver") or gunTool.Name:lower():find("sheriff")
+            if isGunValid then
+                if gunTool.Parent ~= char then
+                    humanoid:EquipTool(gunTool)
+                end
+                
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and GetMM2Role(player) == "Murderer" then
+                        local mChar = player.Character
+                        local mHrp = mChar and mChar:FindFirstChild("HumanoidRootPart")
+                        if mHrp then
+                            -- Aim camera or fire automatically
+                            Camera.CFrame = CFrame.new(Camera.CFrame.Position, mHrp.Position)
+                            pcall(function()
+                                gunTool:Activate()
+                            end)
+                        end
+                        break
+                    end
+                end
+            end
         end
     end
 
