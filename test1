@@ -105,7 +105,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v2.5 Professional"
+HubSubTitle.Text = "v2.6 Professional"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -797,6 +797,29 @@ CreateDropdown(SettingsPage, "Menu Theme", {"Blurple", "Midnight Dark", "Crimson
     Sidebar.BackgroundColor3 = ThemeConfig.Sidebar
 end)
 
+CreateCategoryLabel(SettingsPage, "SYSTEM")
+CreateButton(SettingsPage, "Unload HUB", function()
+    -- Cleanup all drawings (tracers)
+    for _, tracer in pairs(tracersList) do
+        if tracer then
+            pcall(function() tracer:Remove() end)
+        end
+    end
+    -- Reset character state if modified
+    local char = LocalPlayer.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp and hrp:FindFirstChild("EasyFlyForce") then hrp.EasyFlyForce:Destroy() end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then 
+            hum.PlatformStand = false
+            hum.WalkSpeed = 16
+        end
+    end
+    -- Destroy GUI completely
+    EasyHUB:Destroy()
+end)
+
 -- Sidebar Tab Selection Logic
 local tabButtons = {}
 local function CreateTabButton(name, icon, targetPage)
@@ -892,7 +915,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- HIGH-PERFORMANCE OPTIMIZED RENDER LOOP (Fixed FPS drops & lag spikes)
+-- HIGH-PERFORMANCE OPTIMIZED RENDER LOOP
 local tracersList = {}
 local frameCounter = 0
 
@@ -930,15 +953,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    if MiscConfig.Fly and hrp and humanoid then
-        local bv = hrp:FindFirstChild("EasyFlyForce")
-        if not bv then
-            bv = Instance.new("BodyVelocity")
-            bv.Name = "EasyFlyForce"
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Parent = hrp
-        end
-        
+    -- Fixed Flying Mechanics (Proper AssemblyLinearVelocity + Camera Look Vector)
+    if MiscConfig.Fly and hrp then
         local moveDir = Vector3.new(0, 0, 0)
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
@@ -947,11 +963,16 @@ RunService.RenderStepped:Connect(function()
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
         
-        bv.Velocity = moveDir * MiscConfig.FlySpeed
-        humanoid.PlatformStand = true
+        if moveDir.Magnitude > 0 then
+            moveDir = moveDir.Unit
+        end
+        
+        hrp.AssemblyLinearVelocity = moveDir * MiscConfig.FlySpeed
+        if humanoid then humanoid.PlatformStand = true end
     else
-        if hrp and hrp:FindFirstChild("EasyFlyForce") then hrp.EasyFlyForce:Destroy() end
-        if humanoid then humanoid.PlatformStand = false end
+        if humanoid and humanoid.PlatformStand and not MiscConfig.Fly then 
+            humanoid.PlatformStand = false 
+        end
     end
 
     -- Gun ESP Logic running at reduced frequency to prevent lag spikes
