@@ -105,7 +105,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v2.6 Professional"
+HubSubTitle.Text = "v2.7 Professional"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -187,6 +187,7 @@ end
 
 local ESPPage = CreatePage()
 local TeleportPage = CreatePage()
+local AimPage = CreatePage()
 local SkinchangerPage = CreatePage()
 local MiscPage = CreatePage()
 local SettingsPage = CreatePage()
@@ -492,8 +493,31 @@ local ESPConfig = {
     MurderColor = Color3.fromRGB(231, 76, 60),
     SheriffColor = Color3.fromRGB(52, 152, 219)
 }
-local SkinConfig = {Corblox = false, Headless = false}
+local SkinConfig = {Headless = false} -- Корблокс полностью удален по вашему запросу
+local AimConfig = {SilentAim = false, AutoShoot = false}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
+
+local function GetMM2Role(player)
+    local character = player.Character
+    if not character then return "Innocent" end
+    
+    local containers = {player:FindFirstChild("Backpack"), character}
+    for _, container in ipairs(containers) do
+        if container then
+            for _, item in ipairs(container:GetChildren()) do
+                if item:IsA("Tool") then
+                    local itemName = item.Name:lower()
+                    if itemName == "knife" or itemName:find("knife") then
+                        return "Murderer"
+                    elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
+                        return "Sheriff"
+                    end
+                end
+            end
+        end
+    end
+    return "Innocent"
+end
 
 -- ROBUST GUN FINDER
 local function searchForGun()
@@ -512,6 +536,34 @@ local function searchForGun()
         end
     end
     return nil
+end
+
+-- Функция поиска Murderer для Silent Aim и Auto Shoot (работает, только если вы Шериф)
+local function GetNearestMurderer()
+    if GetMM2Role(LocalPlayer) ~= "Sheriff" then return nil end
+    
+    local nearestDist = math.huge
+    local targetChar = nil
+    
+    local lChar = LocalPlayer.Character
+    local lHrp = lChar and lChar:FindFirstChild("HumanoidRootPart")
+    if not lHrp then return nil end
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and GetMM2Role(player) == "Murderer" then
+            local pChar = player.Character
+            local pHrp = pChar and pChar:FindFirstChild("HumanoidRootPart")
+            local pHum = pChar and pChar:FindFirstChildOfClass("Humanoid")
+            if pHrp and pHum and pHum.Health > 0 then
+                local dist = (lHrp.Position - pHrp.Position).Magnitude
+                if dist < nearestDist then
+                    nearestDist = dist
+                    targetChar = pChar
+                end
+            end
+        end
+    end
+    return targetChar
 end
 
 -- BUILD TABS
@@ -609,28 +661,6 @@ CreateButton(TeleportPage, "Teleport To Gun", function()
     end
 end)
 
-local function GetMM2Role(player)
-    local character = player.Character
-    if not character then return "Innocent" end
-    
-    local containers = {player:FindFirstChild("Backpack"), character}
-    for _, container in ipairs(containers) do
-        if container then
-            for _, item in ipairs(container:GetChildren()) do
-                if item:IsA("Tool") then
-                    local itemName = item.Name:lower()
-                    if itemName == "knife" or itemName:find("knife") then
-                        return "Murderer"
-                    elseif itemName == "gun" or itemName == "revolver" or itemName:find("revolver") or itemName:find("sheriff") then
-                        return "Sheriff"
-                    end
-                end
-            end
-        end
-    end
-    return "Innocent"
-end
-
 CreateButton(TeleportPage, "Teleport To Murder", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
@@ -661,7 +691,37 @@ CreateButton(TeleportPage, "Teleport To Sheriff", function()
     end
 end)
 
--- SKINCHANGER TAB (Fixed True Corblox Leg Mesh Replacement)
+-- AIMBOT TAB (Sheriff Features: Silent Aim & Auto Shoot)
+CreateCategoryLabel(AimPage, "SHERIFF COMBAT")
+CreateToggle(AimPage, "Silent Aim (Redirect Ray)", "SilentAim", function(state) AimConfig.SilentAim = state end)
+CreateToggle(AimPage, "Auto Shoot (Auto Fire)", "AutoShoot", function(state) AimConfig.AutoShoot = state end)
+
+-- Перехват лучей / выстрелов для Silent Aimbot (работает с большинством пушек MM2)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if AimConfig.SilentAim and GetMM2Role(LocalPlayer) == "Sheriff" then
+        if method == "FireServer" or method == "InvokeServer" then
+            local targetMurderer = GetNearestMurderer()
+            if targetMurderer and targetMurderer:FindFirstChild("HumanoidRootPart") then
+                -- Подменяем координаты направления выстрела на цель (Мардера)
+                for i, v in ipairs(args) do
+                    if typeof(v) == "Vector3" then
+                        args[i] = targetMurderer.HumanoidRootPart.Position
+                    elseif typeof(v) == "CFrame" then
+                        args[i] = CFrame.new(v.Position, targetMurderer.HumanoidRootPart.Position)
+                    end
+                end
+            end
+        end
+    end
+    
+    return oldNamecall(self, unpack(args))
+end)
+
+-- SKINCHANGER TAB (Корблокс успешно убран, остался Headless)
 CreateCategoryLabel(SkinchangerPage, "VISUAL SKINS")
 CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
     SkinConfig.Headless = state
@@ -676,46 +736,6 @@ CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
     end
 end)
 
-CreateToggle(SkinchangerPage, "Corblox Right Leg", "Corblox", function(state)
-    SkinConfig.Corblox = state
-    local char = LocalPlayer.Character
-    if char then
-        local rLegParts = {"RightLeg", "RightLowerLeg", "RightFoot"}
-        for _, partName in ipairs(rLegParts) do
-            local part = char:FindFirstChild(partName)
-            if part then
-                if state then
-                    part.Transparency = 1
-                    local mesh = part:FindFirstChildOfClass("SpecialMesh")
-                    if mesh then mesh.Transparency = 1 end
-                    
-                    if not part:FindFirstChild("CorbloxBone") then
-                        local bone = Instance.new("Part")
-                        bone.Name = "CorbloxBone"
-                        bone.Size = Vector3.new(0.6, 2.1, 0.6)
-                        bone.Color = Color3.fromRGB(15, 15, 15)
-                        bone.Material = Enum.Material.SmoothPlastic
-                        bone.CanCollide = false
-                        bone.Parent = part
-                        
-                        local weld = Instance.new("WeldConstraint")
-                        weld.Part0 = part
-                        weld.Part1 = bone
-                        weld.Parent = bone
-                        bone.CFrame = part.CFrame
-                    end
-                else
-                    part.Transparency = 0
-                    local mesh = part:FindFirstChildOfClass("SpecialMesh")
-                    if mesh then mesh.Transparency = 0 end
-                    local bone = part:FindFirstChild("CorbloxBone")
-                    if bone then bone:Destroy() end
-                end
-            end
-        end
-    end
-end)
-
 LocalPlayer.CharacterAdded:Connect(function(newChar)
     task.wait(1.2)
     if SkinConfig.Headless then
@@ -724,31 +744,6 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
             head.Transparency = 1
             local face = head:FindFirstChild("face")
             if face then face.Transparency = 1 end
-        end
-    end
-    if SkinConfig.Corblox then
-        local rLegParts = {"RightLeg", "RightLowerLeg", "RightFoot"}
-        for _, partName in ipairs(rLegParts) do
-            local part = newChar:FindFirstChild(partName)
-            if part then
-                part.Transparency = 1
-                local mesh = part:FindFirstChildOfClass("SpecialMesh")
-                if mesh then mesh.Transparency = 1 end
-                
-                local bone = Instance.new("Part")
-                bone.Name = "CorbloxBone"
-                bone.Size = Vector3.new(0.6, 2.1, 0.6)
-                bone.Color = Color3.fromRGB(15, 15, 15)
-                bone.Material = Enum.Material.SmoothPlastic
-                bone.CanCollide = false
-                bone.Parent = part
-                
-                local weld = Instance.new("WeldConstraint")
-                weld.Part0 = part
-                weld.Part1 = bone
-                weld.Parent = bone
-                bone.CFrame = part.CFrame
-            end
         end
     end
 end)
@@ -799,13 +794,11 @@ end)
 
 CreateCategoryLabel(SettingsPage, "SYSTEM")
 CreateButton(SettingsPage, "Unload HUB", function()
-    -- Cleanup all drawings (tracers)
     for _, tracer in pairs(tracersList) do
         if tracer then
             pcall(function() tracer:Remove() end)
         end
     end
-    -- Reset character state if modified
     local char = LocalPlayer.Character
     if char then
         local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -816,7 +809,6 @@ CreateButton(SettingsPage, "Unload HUB", function()
             hum.WalkSpeed = 16
         end
     end
-    -- Destroy GUI completely
     EasyHUB:Destroy()
 end)
 
@@ -846,6 +838,7 @@ local function CreateTabButton(name, icon, targetPage)
     TabBtn.MouseButton1Click:Connect(function()
         ESPPage.Visible = false
         TeleportPage.Visible = false
+        AimPage.Visible = false
         SkinchangerPage.Visible = false
         MiscPage.Visible = false
         SettingsPage.Visible = false
@@ -866,6 +859,7 @@ end
 
 CreateTabButton("ESP", "🛡️", ESPPage)
 CreateTabButton("Teleport", "📍", TeleportPage)
+CreateTabButton("Aimbot", "🎯", AimPage)
 CreateTabButton("Skins", "👕", SkinchangerPage)
 CreateTabButton("Misc", "⚡", MiscPage)
 CreateTabButton("Settings", "⚙️", SettingsPage)
@@ -937,6 +931,19 @@ RunService.RenderStepped:Connect(function()
         humanoid.WalkSpeed = baseSpeed * currentMultiplier
     end
 
+    -- Автоматический выстрел (Auto Shoot) для шерифа при виде мардера
+    if AimConfig.AutoShoot and GetMM2Role(LocalPlayer) == "Sheriff" and frameCounter % 5 == 0 then
+        local murderer = GetNearestMurderer()
+        if murderer and murderer:FindFirstChild("HumanoidRootPart") then
+            local tool = char and char:FindFirstChildOfClass("Tool")
+            if tool and (tool.Name:lower():find("gun") or tool.Name:lower():find("revolver") or tool.Name:lower():find("sheriff")) then
+                pcall(function()
+                    tool:Activate()
+                end)
+            end
+        end
+    end
+
     if MiscConfig.NoCollision and frameCounter % 30 == 0 then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
@@ -953,7 +960,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Fixed Flying Mechanics (Proper AssemblyLinearVelocity + Camera Look Vector)
     if MiscConfig.Fly and hrp then
         local moveDir = Vector3.new(0, 0, 0)
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
@@ -975,7 +981,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Gun ESP Logic running at reduced frequency to prevent lag spikes
     if ESPConfig.GunESP and frameCounter % 20 == 0 then
         local foundGunObj = searchForGun()
         if foundGunObj then
