@@ -111,7 +111,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v2.9 Professional"
+HubSubTitle.Text = "v3.0 Fixed"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -509,7 +509,7 @@ local ESPConfig = {
 }
 local AutofarmConfig = {AutoCoinFarm = false, InstantCoinFarm = false}
 local SkinConfig = {Headless = false}
-local AimbotConfig = {SilentAim = false, AutoShoot = false, FOV = 200}
+local AimbotConfig = {SilentAim = false, AutoShoot = false, FOV = 350}
 local FunConfig = {Spinbot = false, SpinSpeed = 50}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
 
@@ -533,7 +533,6 @@ local function searchForGun()
 end
 
 local function searchForCoin()
-    -- Ищет монетки на карте MM2 (обычно в папке CoinContainer или внутри Workspace)
     local coinContainer = Workspace:FindFirstChild("CoinContainer") or Workspace:FindFirstChild("Coins")
     if coinContainer then
         for _, coin in ipairs(coinContainer:GetChildren()) do
@@ -543,9 +542,8 @@ local function searchForCoin()
             end
         end
     end
-    -- Глобальный поиск на случай другого контейнера
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj.Name:lower() == "coin" or obj.Name:lower() == "basepart" and obj.Parent and obj.Parent.Name:lower():find("coin") then
+        if obj.Name:lower() == "coin" or (obj.Name:lower() == "basepart" and obj.Parent and obj.Parent.Name:lower():find("coin")) then
             if obj:IsA("BasePart") then
                 return obj
             end
@@ -594,7 +592,7 @@ local function IsInFOV(targetPos)
     return false
 end
 
--- HOOK FOR SILENT AIM
+-- FIXED SILENT AIM HOOK FOR MM2
 pcall(function()
     local mt = getrawmetatable(game)
     local oldNamecall = mt.__namecall
@@ -604,16 +602,18 @@ pcall(function()
         local method = getnamecallmethod()
         local args = {...}
 
-        if not checkcaller() and AimbotConfig.SilentAim and GetMM2Role(LocalPlayer) == "Sheriff" then
+        if not checkcaller() and AimbotConfig.SilentAim then
             if tostring(method) == "FireServer" or tostring(method) == "InvokeServer" then
-                if self.Name == "ShootGun" or self.Name == "Shoot" or self.Name:find("Fire") then
+                if self.Name == "ShootGun" or self.Name == "Shoot" or self.Name:find("Fire") or self.Name:find("Hit") then
                     local murderer = GetMurderer()
                     if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
-                        local mPos = murderer.Character.HumanoidRootPart.Position
-                        if AimbotConfig.AutoShoot or IsInFOV(mPos) then
+                        local mPart = murderer.Character.HumanoidRootPart
+                        if IsInFOV(mPart.Position) then
                             for i, v in ipairs(args) do
                                 if typeof(v) == "Vector3" then
-                                    args[i] = mPos
+                                    args[i] = mPart.Position
+                                elseif typeof(v) == "CFrame" then
+                                    args[i] = CFrame.new(v.Position, mPart.Position)
                                 end
                             end
                             return oldNamecall(self, unpack(args))
@@ -1032,16 +1032,18 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- AutoShoot Logic
+    -- Fixed AutoShoot Logic (Стреляет ТОЛЬКО когда в поле зрения есть мердер)
     if AimbotConfig.AutoShoot and frameCounter % 15 == 0 then
         if GetMM2Role(LocalPlayer) == "Sheriff" then
             local gun = char and char:FindFirstChildOfClass("Tool")
             if gun and (gun.Name:lower():find("gun") or gun.Name:lower():find("revolver")) then
                 local murderer = GetMurderer()
                 if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
-                    local mPos = murderer.Character.HumanoidRootPart.Position
-                    if AimbotConfig.SilentAim or IsInFOV(mPos) then
-                        mouse1click()
+                    local mPart = murderer.Character.HumanoidRootPart
+                    if IsInFOV(mPart.Position) then
+                        pcall(function()
+                            mouse1click()
+                        end)
                     end
                 end
             end
