@@ -771,4 +771,18 @@ function EasyHUB:CreateWindow(config)
     return Window
 end
 
+------------------------------------------------------------------
+-- AUTO-RUN: this makes the whole file work as a standalone script.
+-- Just execute this file directly and the window + button appear.
+------------------------------------------------------------------
+local Window = EasyHUB:CreateWindow({
+    Title = "EasyHUB",
+    SubTitle = "Universal Script Hub",
+    ToggleKeys = {Enum.KeyCode.Home, Enum.KeyCode.P},
+})
+
+local MainCat = Window:AddCategory("Main", "🏠")
+local MainSection = MainCat:AddSection("General")
+MainSection:AddLabel("Welcome to EasyHUB")
+
 return EasyHUB
