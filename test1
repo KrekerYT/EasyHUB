@@ -6,18 +6,24 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Camera = workspace.CurrentCamera
 
+-- GUI Parent Targeting (Safe CoreGui Injection)
+local CoreGui = game:GetService("CoreGui")
+local TargetGui = LocalPlayer:WaitForChild("PlayerGui")
+pcall(function()
+    TargetGui = (gethui and gethui()) or CoreGui
+end)
+
 -- Remove old GUI if exists
-if PlayerGui:FindFirstChild("EasyHUB") then
-    PlayerGui["EasyHUB"]:Destroy()
+if TargetGui:FindFirstChild("EasyHUB") then
+    TargetGui["EasyHUB"]:Destroy()
 end
 
 -- Main Container
 local EasyHUB = Instance.new("ScreenGui")
 EasyHUB.Name = "EasyHUB"
-EasyHUB.Parent = PlayerGui
+EasyHUB.Parent = TargetGui
 EasyHUB.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 EasyHUB.IgnoreGuiInset = true
 EasyHUB.ResetOnSpawn = false
@@ -42,7 +48,7 @@ local OpenButton = Instance.new("TextButton")
 OpenButton.Name = "EasyMenu"
 OpenButton.Parent = EasyHUB
 OpenButton.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-OpenButton.Position = UDim2.new(0.5, -60, 0, 15)
+OpenButton.Position = UDim2.new(0.5, -60, 0, 50)
 OpenButton.Size = UDim2.new(0, 120, 0, 38)
 OpenButton.Font = Enum.Font.GothamBold
 OpenButton.Text = "⚡ EasyHUB"
@@ -105,7 +111,7 @@ HubSubTitle.BackgroundTransparency = 1
 HubSubTitle.Position = UDim2.new(0, 105, 0, 0)
 HubSubTitle.Size = UDim2.new(0, 100, 1, 0)
 HubSubTitle.Font = Enum.Font.GothamMedium
-HubSubTitle.Text = "v2.7 Professional"
+HubSubTitle.Text = "v2.8 Professional"
 HubSubTitle.TextColor3 = ThemeConfig.SecondaryText
 HubSubTitle.TextSize = 12
 HubSubTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -208,6 +214,7 @@ local function CreateCategoryLabel(parent, text)
 end
 
 -- Keybind System
+local isOpen = false
 local Keybinds = {}
 local listeningForKey = nil
 
@@ -227,6 +234,11 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 
     if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            isOpen = not isOpen
+            MainFrame.Visible = isOpen
+        end
+
         for id, bindKey in pairs(Keybinds) do
             if input.KeyCode == bindKey then
                 if id.toggleCallback and id.switchRef and id.circleRef then
@@ -558,7 +570,7 @@ local function IsInFOV(targetPos)
     return false
 end
 
--- HOOK FOR SILENT AIM
+-- HOOK FOR SILENT AIM (Направляет выстрел на убийцу, если включен SilentAim)
 pcall(function()
     local mt = getrawmetatable(game)
     local oldNamecall = mt.__namecall
@@ -573,10 +585,12 @@ pcall(function()
                 if self.Name == "ShootGun" or self.Name == "Shoot" or self.Name:find("Fire") then
                     local murderer = GetMurderer()
                     if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
-                        if IsInFOV(murderer.Character.HumanoidRootPart.Position) then
+                        local mPos = murderer.Character.HumanoidRootPart.Position
+                        -- Если включен еще и AutoShoot или мардер в зоне FOV — перенаправляем
+                        if AimbotConfig.AutoShoot or IsInFOV(mPos) then
                             for i, v in ipairs(args) do
                                 if typeof(v) == "Vector3" then
-                                    args[i] = murderer.Character.HumanoidRootPart.Position
+                                    args[i] = mPos
                                 end
                             end
                             return oldNamecall(self, unpack(args))
@@ -870,13 +884,11 @@ CreateTabButton("Fun", "🎉", FunPage)
 CreateTabButton("Misc", "⚡", MiscPage)
 CreateTabButton("Settings", "⚙️", SettingsPage)
 
--- Highlight default tab on launch
 tabButtons[1].Btn.BackgroundTransparency = 0
 tabButtons[1].Btn.BackgroundColor3 = ThemeConfig.Card
 tabButtons[1].Btn.TextColor3 = ThemeConfig.Text
 
 -- Open/Close Logic
-local isOpen = false
 OpenButton.MouseButton1Click:Connect(function()
     isOpen = not isOpen
     MainFrame.Visible = isOpen
@@ -958,14 +970,15 @@ RunService.RenderStepped:Connect(function()
         hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(FunConfig.SpinSpeed), 0)
     end
     
-    -- AutoShoot Logic (Fires if Sheriff, target in FOV)
+    -- AutoShoot Logic (Стреляет, если шериф и прицел наведен на мардера ИЛИ если включен SilentAim + мардер в поле зрения)
     if AimbotConfig.AutoShoot and frameCounter % 15 == 0 then
         if GetMM2Role(LocalPlayer) == "Sheriff" then
-            local gun = char:FindFirstChildOfClass("Tool")
+            local gun = char and char:FindFirstChildOfClass("Tool")
             if gun and (gun.Name:lower():find("gun") or gun.Name:lower():find("revolver")) then
                 local murderer = GetMurderer()
                 if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
-                    if IsInFOV(murderer.Character.HumanoidRootPart.Position) then
+                    local mPos = murderer.Character.HumanoidRootPart.Position
+                    if AimbotConfig.SilentAim or IsInFOV(mPos) then
                         mouse1click()
                     end
                 end
@@ -973,7 +986,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Fixed Flying Mechanics (Proper AssemblyLinearVelocity + Camera Look Vector)
+    -- Fixed Flying Mechanics
     if MiscConfig.Fly and hrp then
         local moveDir = Vector3.new(0, 0, 0)
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
@@ -995,7 +1008,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Gun ESP Logic running at reduced frequency to prevent lag spikes
+    -- Gun ESP Logic
     if ESPConfig.GunESP and frameCounter % 20 == 0 then
         local foundGunObj = searchForGun()
         if foundGunObj then
