@@ -9,6 +9,7 @@
         local Window = EasyHUB:CreateWindow({
             Title = "EasyHUB",
             SubTitle = "Universal Script Hub",
+            ToggleKeys = {Enum.KeyCode.Home, Enum.KeyCode.P}, -- optional, this is the default
         })
 
         local MainTab = Window:AddCategory("Main", "🏠")
@@ -109,7 +110,7 @@ function EasyHUB:CreateWindow(config)
     config = config or {}
     local Title = config.Title or "EasyHUB"
     local SubTitle = config.SubTitle or "Script Hub"
-    local ToggleKey = config.ToggleKey or Enum.KeyCode.RightControl
+    local ToggleKeys = config.ToggleKeys or {Enum.KeyCode.Home, Enum.KeyCode.P}
 
     -- remove old instance if present
     local old = PlayerGui:FindFirstChild("EasyHUB_ScreenGui")
@@ -166,18 +167,7 @@ function EasyHUB:CreateWindow(config)
     })
 
     local function setMenuVisible(visible)
-        if visible then
-            Main.Visible = true
-            Main.Size = UDim2.fromOffset(650, 380)
-            tween(Main, {Size = UDim2.fromOffset(650, 420)}, 0.16)
-        else
-            tween(Main, {Size = UDim2.fromOffset(650, 380)}, 0.14)
-            task.delay(0.14, function()
-                if not FloatBtn:GetAttribute("MenuOpen") then
-                    Main.Visible = false
-                end
-            end)
-        end
+        Main.Visible = visible
         FloatBtn:SetAttribute("MenuOpen", visible)
     end
 
@@ -339,11 +329,14 @@ function EasyHUB:CreateWindow(config)
         Parent = Content,
     })
 
-    -- toggle visibility with keybind (same behavior as the EasyMenu button)
+    -- toggle visibility with keybind(s) - default Home and P (same behavior as the EasyMenu button)
     UserInputService.InputBegan:Connect(function(input, gpe)
         if gpe then return end
-        if input.KeyCode == ToggleKey then
-            setMenuVisible(not Main.Visible)
+        for _, key in ipairs(ToggleKeys) do
+            if input.KeyCode == key then
+                setMenuVisible(not Main.Visible)
+                break
+            end
         end
     end)
 
@@ -758,6 +751,20 @@ function EasyHUB:CreateWindow(config)
         Default = false,
         Callback = function(state)
             -- hook your HP-label logic here
+        end,
+    })
+    PlayerESP:AddToggle({
+        Text = "Box ESP",
+        Default = false,
+        Callback = function(state)
+            -- hook your bounding-box-around-player logic here
+        end,
+    })
+    PlayerESP:AddToggle({
+        Text = "Distance",
+        Default = false,
+        Callback = function(state)
+            -- hook your distance-to-player label logic here
         end,
     })
 
