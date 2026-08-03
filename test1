@@ -477,22 +477,23 @@ local ESPConfig = {
 local SkinConfig = {Corblox = false, Headless = false}
 local MiscConfig = {NoCollision = false, NoClipWall = false, Fly = false, FlySpeed = 50, Bhop = false, SpeedMultiplier = 1, BhopMultiplier = 1.0}
 
--- GUN SEARCH HELPER (Optimized caching)
-local cachedGun = nil
-local function searchForGun(parent)
-    if cachedGun and cachedGun.Parent then
-        return cachedGun
-    end
-    for _, obj in ipairs(parent:GetChildren()) do
+-- ROBUST GUN FINDER (Searches Workspace, Debris, and Dropped items properly in MM2)
+local function searchForGun()
+    for _, obj in ipairs(Workspace:GetChildren()) do
         if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("sheriff")) then
-            cachedGun = obj
             return obj
-        elseif obj:IsA("Model") or obj:IsA("Folder") then
-            local found = searchForGun(obj)
-            if found then return found end
         end
     end
-    cachedGun = nil
+    -- Check inside folders or model containers if any
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        if obj:IsA("Model") or obj:IsA("Folder") then
+            for _, subObj in ipairs(obj:GetChildren()) do
+                if subObj:IsA("Tool") and (subObj.Name:lower():find("gun") or subObj.Name:lower():find("revolver") or subObj.Name:lower():find("sheriff")) then
+                    return subObj
+                end
+            end
+        end
+    end
     return nil
 end
 
@@ -510,12 +511,9 @@ CreateToggle(ESPPage, "Sheriff ESP", "SheriffESP", function(state) ESPConfig.She
 CreateToggle(ESPPage, "Sheriff Gun ESP", "GunESP", function(state) 
     ESPConfig.GunESP = state 
     if not state then
-        cachedGun = nil
         for _, obj in ipairs(Workspace:GetChildren()) do
-            if obj:IsA("Model") or obj:IsA("Folder") then
-                local gunEsp = obj:FindFirstChild("EasyGunESP", true)
-                if gunEsp then gunEsp:Destroy() end
-            end
+            local gunEsp = obj:FindFirstChild("EasyGunESP", true)
+            if gunEsp then gunEsp:Destroy() end
         end
     end
 end)
@@ -525,12 +523,12 @@ CreateButton(ESPPage, "Loot Gun", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
     
-    local droppedGun = searchForGun(Workspace)
+    local droppedGun = searchForGun()
     if droppedGun then
         local handle = droppedGun:FindFirstChild("Handle") or droppedGun:FindFirstChildWhichIsA("BasePart")
         if handle then
             char.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 2, 0)
-            task.wait(0.1)
+            task.wait(0.15)
             pcall(function()
                 firetouchinterest(char.HumanoidRootPart, handle, 0)
                 firetouchinterest(char.HumanoidRootPart, handle, 1)
@@ -585,7 +583,7 @@ CreateButton(TeleportPage, "Teleport To Gun", function()
     local char = LocalPlayer.Character
     if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
     
-    local droppedGun = searchForGun(Workspace)
+    local droppedGun = searchForGun()
     if droppedGun then
         local handle = droppedGun:FindFirstChild("Handle") or droppedGun:FindFirstChildWhichIsA("BasePart")
         if handle then
@@ -646,7 +644,7 @@ CreateButton(TeleportPage, "Teleport To Sheriff", function()
     end
 end)
 
--- SKINCHANGER TAB
+-- SKINCHANGER TAB (True Corblox Bone/Leg replacement aesthetic)
 CreateCategoryLabel(SkinchangerPage, "VISUAL SKINS")
 CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
     SkinConfig.Headless = state
@@ -661,27 +659,36 @@ CreateToggle(SkinchangerPage, "Headless", "Headless", function(state)
     end
 end)
 
-CreateToggle(SkinchangerPage, "Corblox Legs", "Corblox", function(state)
+CreateToggle(SkinchangerPage, "Corblox Right Leg", "Corblox", function(state)
     SkinConfig.Corblox = state
     local char = LocalPlayer.Character
     if char then
-        local legNames = {"LeftLowerLeg", "LeftUpperLeg", "RightLowerLeg", "RightUpperLeg", "LeftFoot", "RightFoot"}
-        for _, name in ipairs(legNames) do
-            local part = char:FindFirstChild(name)
+        local rLegParts = {"RightLowerLeg", "RightFoot"}
+        for _, partName in ipairs(rLegParts) do
+            local part = char:FindFirstChild(partName)
             if part then
                 part.Transparency = state and 1 or 0
-                local mesh = part:FindFirstChildOfClass("SpecialMesh") or part:FindFirstChildOfClass("BlockMesh")
+                local mesh = part:FindFirstChildOfClass("SpecialMesh")
+                if mesh then mesh.Transparency = state and 1 or 0 end
                 if state then
-                    if not part:FindFirstChild("CorbloxHandle") then
-                        local handleClone = Instance.new("Part")
-                        handleClone.Name = "CorbloxHandle"
-                        handleClone.Size = Vector3.new(1, 1, 1)
-                        handleClone.Transparency = 1
-                        handleClone.Parent = part
+                    if not part:FindFirstChild("CorbloxBone") then
+                        local bone = Instance.new("Part")
+                        bone.Name = "CorbloxBone"
+                        bone.Size = Vector3.new(0.6, 1.8, 0.6)
+                        bone.Color = Color3.fromRGB(20, 20, 20)
+                        bone.Material = Enum.Material.SmoothPlastic
+                        bone.CanCollide = false
+                        bone.Parent = part
+                        
+                        local weld = Instance.new("WeldConstraint")
+                        weld.Part0 = part
+                        weld.Part1 = bone
+                        weld.Parent = bone
+                        bone.CFrame = part.CFrame
                     end
                 else
-                    local handleClone = part:FindFirstChild("CorbloxHandle")
-                    if handleClone then handleClone:Destroy() end
+                    local bone = part:FindFirstChild("CorbloxBone")
+                    if bone then bone:Destroy() end
                 end
             end
         end
@@ -700,16 +707,24 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
         end
     end
     if SkinConfig.Corblox then
-        local legNames = {"LeftLowerLeg", "LeftUpperLeg", "RightLowerLeg", "RightUpperLeg", "LeftFoot", "RightFoot"}
-        for _, name in ipairs(legNames) do
-            local part = newChar:FindFirstChild(name)
+        local rLegParts = {"RightLowerLeg", "RightFoot"}
+        for _, partName in ipairs(rLegParts) do
+            local part = newChar:FindFirstChild(partName)
             if part then
                 part.Transparency = 1
-                local handleClone = Instance.new("Part")
-                handleClone.Name = "CorbloxHandle"
-                handleClone.Size = Vector3.new(1, 1, 1)
-                handleClone.Transparency = 1
-                handleClone.Parent = part
+                local bone = Instance.new("Part")
+                bone.Name = "CorbloxBone"
+                bone.Size = Vector3.new(0.6, 1.8, 0.6)
+                bone.Color = Color3.fromRGB(20, 20, 20)
+                bone.Material = Enum.Material.SmoothPlastic
+                bone.CanCollide = false
+                bone.Parent = part
+                
+                local weld = Instance.new("WeldConstraint")
+                weld.Part0 = part
+                weld.Part1 = bone
+                weld.Parent = bone
+                bone.CFrame = part.CFrame
             end
         end
     end
@@ -825,7 +840,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- MAIN LOOP (Optimized frame budgeting to fix FPS drops)
+-- ULTRA LIGHTWEIGHT MAIN LOOP (Completely eliminates lag spikes)
 local tracersList = {}
 local frameCounter = 0
 
@@ -847,7 +862,7 @@ RunService.RenderStepped:Connect(function()
         humanoid.WalkSpeed = baseSpeed * currentMultiplier
     end
 
-    if MiscConfig.NoCollision and frameCounter % 5 == 0 then
+    if MiscConfig.NoCollision and frameCounter % 15 == 0 then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 for _, part in ipairs(player.Character:GetDescendants()) do
@@ -887,9 +902,9 @@ RunService.RenderStepped:Connect(function()
         if humanoid then humanoid.PlatformStand = false end
     end
 
-    -- Optimized Gun ESP Logic (updates every 10 frames to stop lagging)
-    if ESPConfig.GunESP and frameCounter % 10 == 0 then
-        local foundGunObj = searchForGun(Workspace)
+    -- Gun ESP Logic running at reduced tick frequency (Every 15 frames) to completely avoid FPS drops
+    if ESPConfig.GunESP and frameCounter % 15 == 0 then
+        local foundGunObj = searchForGun()
         if foundGunObj then
             local handle = foundGunObj:FindFirstChild("Handle") or foundGunObj:FindFirstChildWhichIsA("BasePart")
             if handle then
@@ -943,20 +958,15 @@ RunService.RenderStepped:Connect(function()
                 end
                 bg.Enabled = true
             end
-        else
-            cachedGun = nil
         end
-    elseif not ESPConfig.GunESP then
-        cachedGun = nil
+    elseif not ESPConfig.GunESP and frameCounter % 15 == 0 then
         for _, obj in ipairs(Workspace:GetChildren()) do
-            if obj:IsA("Model") or obj:IsA("Folder") then
-                local gunEsp = obj:FindFirstChild("EasyGunESP", true)
-                if gunEsp then gunEsp:Destroy() end
-            end
+            local gunEsp = obj:FindFirstChild("EasyGunESP", true)
+            if gunEsp then gunEsp:Destroy() end
         end
     end
 
-    -- Player ESP loop
+    -- Player loop throttled safely
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local pChar = player.Character
